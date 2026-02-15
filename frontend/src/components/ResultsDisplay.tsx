@@ -35,12 +35,14 @@ interface ResultsDisplayProps {
 }
 
 const ResultsDisplay = ({ result }: ResultsDisplayProps) => {
+  const showSaveBar = result.type !== 'analyze' || result.data.is_valid_report;
+
   return (
     <div className="space-y-6">
       {result.type === 'analyze' && <AnalyzeResultsDisplay data={result.data} />}
       {result.type === 'manual' && <ManualResultDisplay data={result.data} />}
       {result.type === 'risk' && <RiskAssessment result={result.data} />}
-      <SaveBar result={result} />
+      {showSaveBar && <SaveBar result={result} />}
     </div>
   );
 };
