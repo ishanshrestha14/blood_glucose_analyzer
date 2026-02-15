@@ -60,12 +60,11 @@ class OCRService:
         self.init_error = None
 
         try:
-            # Initialize PaddleOCR
-            # use_angle_cls: detect text orientation
+            # Initialize PaddleOCR v3.x
+            # use_textline_orientation: detect text orientation
             # lang: language (en for English)
-            # Note: Modern PaddleOCR uses minimal parameters
             self.ocr = PaddleOCR(
-                use_angle_cls=True,
+                use_textline_orientation=True,
                 lang='en'
             )
             self.initialized = True
@@ -144,16 +143,15 @@ class OCRService:
             # Preprocess image
             processed_path = self.preprocess_image(image_path)
 
-            # Run OCR
-            result = self.ocr.ocr(processed_path, cls=True)
+            # Run OCR (PaddleOCR v3.x uses predict(), returns generator of OCRResult)
+            results = list(self.ocr.predict(processed_path))
 
             # Clean up preprocessed image if different from original
             if processed_path != image_path and os.path.exists(processed_path):
                 os.remove(processed_path)
 
-            # Extract text from result
-            # PaddleOCR returns: [[[bbox, (text, confidence)], ...]]
-            if not result or not result[0]:
+            # PaddleOCR v3.x returns OCRResult dicts with rec_texts, rec_scores, dt_polys
+            if not results or not results[0].get('rec_texts'):
                 return {
                     "success": True,
                     "text": "",
@@ -161,13 +159,7 @@ class OCRService:
                 }
 
             # Combine all detected text
-            text_lines = []
-            for line in result[0]:
-                if line and len(line) >= 2:
-                    text, confidence = line[1]
-                    text_lines.append(text)
-
-            full_text = '\n'.join(text_lines)
+            full_text = '\n'.join(results[0]['rec_texts'])
 
             return {
                 "success": True,
@@ -210,45 +202,47 @@ class OCRService:
             # Preprocess image
             processed_path = self.preprocess_image(image_path)
 
-            # Run OCR
-            result = self.ocr.ocr(processed_path, cls=True)
+            # Run OCR (PaddleOCR v3.x uses predict(), returns generator of OCRResult)
+            results = list(self.ocr.predict(processed_path))
 
             # Clean up preprocessed image if different from original
             if processed_path != image_path and os.path.exists(processed_path):
                 os.remove(processed_path)
 
-            if not result or not result[0]:
+            # PaddleOCR v3.x returns OCRResult dicts with rec_texts, rec_scores, dt_polys
+            if not results or not results[0].get('rec_texts'):
                 return {
                     "success": True,
                     "text_blocks": [],
                     "message": "No text detected in image"
                 }
 
+            page = results[0]
+            rec_texts = page['rec_texts']
+            rec_scores = page['rec_scores']
+            dt_polys = page['dt_polys']
+
             # Parse result with positions
-            # PaddleOCR returns: [[[bbox, (text, confidence)], ...]]
-            # bbox is [[x1,y1], [x2,y2], [x3,y3], [x4,y4]] - four corners
+            # dt_polys are numpy arrays of shape (4, 2) — four corners [x, y]
             text_blocks = []
-            for line in result[0]:
-                if line and len(line) >= 2:
-                    bbox = line[0]
-                    text, confidence = line[1]
+            for text, confidence, bbox in zip(rec_texts, rec_scores, dt_polys):
+                # bbox is numpy array shape (4, 2)
+                poly = bbox.tolist() if hasattr(bbox, 'tolist') else bbox
+                x_coords = [point[0] for point in poly]
+                y_coords = [point[1] for point in poly]
 
-                    # Calculate bounding box properties
-                    x_coords = [point[0] for point in bbox]
-                    y_coords = [point[1] for point in bbox]
-
-                    text_blocks.append({
-                        "text": text,
-                        "confidence": float(confidence),
-                        "bbox": {
-                            "x_min": min(x_coords),
-                            "y_min": min(y_coords),
-                            "x_max": max(x_coords),
-                            "y_max": max(y_coords),
-                            "center_y": (min(y_coords) + max(y_coords)) / 2
-                        },
-                        "raw_bbox": bbox
-                    })
+                text_blocks.append({
+                    "text": text,
+                    "confidence": float(confidence),
+                    "bbox": {
+                        "x_min": min(x_coords),
+                        "y_min": min(y_coords),
+                        "x_max": max(x_coords),
+                        "y_max": max(y_coords),
+                        "center_y": (min(y_coords) + max(y_coords)) / 2
+                    },
+                    "raw_bbox": poly
+                })
 
             return {
                 "success": True,
