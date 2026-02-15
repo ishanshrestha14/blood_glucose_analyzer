@@ -97,14 +97,18 @@ const Header = () => {
             ))}
           </ul>
 
-          {/* CTA Button */}
-          <Link
-            to="/analyze"
-            className="hidden md:inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold px-5 py-2.5 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/35 hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <Sparkles className="w-4 h-4" />
-            Start Analysis
-          </Link>
+          {/* CTA Button - invisible spacer on /analyze to keep nav centered */}
+          {location.pathname !== '/analyze' ? (
+            <Link
+              to="/analyze"
+              className="hidden md:inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold px-5 py-2.5 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/35 hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <Sparkles className="w-4 h-4" />
+              Start Analysis
+            </Link>
+          ) : (
+            <div className="hidden md:block w-[165px]" />
+          )}
 
           {/* Mobile Menu Button */}
           <button
@@ -140,16 +144,18 @@ const Header = () => {
                   </Link>
                 </li>
               ))}
-              <li className="pt-2">
-                <Link
-                  to="/analyze"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold px-4 py-3.5 rounded-xl"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Start Analysis
-                </Link>
-              </li>
+              {location.pathname !== '/analyze' && (
+                <li className="pt-2">
+                  <Link
+                    to="/analyze"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold px-4 py-3.5 rounded-xl"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Start Analysis
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
         )}
