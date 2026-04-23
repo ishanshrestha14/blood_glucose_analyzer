@@ -3,10 +3,12 @@ flask-cors
 paddlepaddle
 paddleocr
 Pillow
+opencv-python-headless
 pandas
 numpy
 scikit-learn
 joblib
 shap
 reportlab
+flasgger
 flasgger

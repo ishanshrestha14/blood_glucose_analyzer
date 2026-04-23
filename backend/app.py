@@ -14,7 +14,12 @@ from datetime import datetime
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-from flasgger import Swagger
+try:
+    from flasgger import Swagger
+    _SWAGGER_AVAILABLE = True
+except ImportError:
+    _SWAGGER_AVAILABLE = False
+    Swagger = None
 
 # Import configuration
 from config import Config
@@ -95,7 +100,8 @@ swagger_config = {
     "swagger_ui": True,
     "specs_route": "/api/docs/",
 }
-Swagger(app, template=swagger_template, config=swagger_config)
+if _SWAGGER_AVAILABLE and Swagger:
+    Swagger(app, template=swagger_template, config=swagger_config)
 
 # Ensure upload folder exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -452,6 +458,7 @@ def analyze_report():
 
         # Step 3: Get detected glucose values from OCR
         detected_values = ocr_result.get('detected_values', [])
+        extracted_fields = ocr_result.get('extracted_fields', {})
 
         if not detected_values:
             cleanup_file(filepath)
@@ -504,6 +511,7 @@ def analyze_report():
             "validation": validation_result,
             "extracted_text": extracted_text,
             "detected_values": detected_values,
+            "extracted_fields": extracted_fields,
             "classifications": classifications,
             "summary": summary,
             "analysis_timestamp": datetime.now().isoformat()
@@ -1490,4 +1498,5 @@ if __name__ == '__main__':
     print("=" * 50)
 
     # Run the app
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('FLASK_RUN_PORT', 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)

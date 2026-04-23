@@ -4,6 +4,7 @@ import FileUpload from '../components/FileUpload';
 import ManualInputForm from '../components/ManualInputForm';
 import RiskAssessmentForm from '../components/RiskAssessmentForm';
 import ResultsDisplay from '../components/ResultsDisplay';
+import OcrFieldsEditor from '../components/OcrFieldsEditor';
 import Disclaimer from '../components/Disclaimer';
 import { analyzeImage, analyzeManualInput, predictRiskWithExplanation, getSupportedTests } from '../services/api';
 import type {
@@ -11,7 +12,11 @@ import type {
   ResultType,
   ManualInputRequest,
   RiskPredictionInput,
+  ExtractedField,
+  TestType,
+  AnalyzeResponse,
 } from '../types';
+import { TEST_TYPE_UNITS } from '../types';
 
 const TABS: { id: AnalysisMode; label: string; shortLabel: string; icon: React.ReactNode; description: string; gradient: string }[] = [
   {
@@ -51,29 +56,98 @@ const Analyze = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ResultType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ocrFields, setOcrFields] = useState<Record<string, ExtractedField> | null>(null);
+  const [baseOcrResult, setBaseOcrResult] = useState<AnalyzeResponse | null>(null);
 
-  // Fetch supported tests on mount (for future use)
   useEffect(() => {
     getSupportedTests();
   }, []);
 
-  // Clear results when mode changes
   useEffect(() => {
     setResult(null);
     setError(null);
+    setOcrFields(null);
+    setBaseOcrResult(null);
   }, [mode]);
 
   const handleFileAnalysis = async (file: File) => {
     setIsLoading(true);
     setError(null);
     setResult(null);
+    setOcrFields(null);
+    setBaseOcrResult(null);
 
     const response = await analyzeImage(file);
 
     if (response.success && response.data) {
       setResult({ type: 'analyze', data: response.data });
+      setBaseOcrResult(response.data);
+      if (response.data.extracted_fields && Object.keys(response.data.extracted_fields).length > 0) {
+        setOcrFields(response.data.extracted_fields);
+      }
     } else {
       setError(response.error || response.message || 'Failed to analyze image');
+    }
+
+    setIsLoading(false);
+  };
+
+  const handleOcrReanalyze = async (editedValues: Record<string, { value: number; unit: string }>) => {
+    setIsLoading(true);
+    setError(null);
+
+    const entries = Object.entries(editedValues);
+    const responses = await Promise.all(
+      entries.map(([testType, { value, unit }]) =>
+        analyzeManualInput({
+          test_type: testType as TestType,
+          value,
+          unit: unit || TEST_TYPE_UNITS[testType as TestType],
+        })
+      )
+    );
+
+    const classifications = responses
+      .map((r, i) => {
+        if (!r.success || !r.data) return null;
+        const [testType, { value, unit }] = entries[i];
+        return {
+          detected: {
+            test_type: testType,
+            value,
+            unit,
+            confidence: ocrFields?.[testType]?.confidence ?? 1.0,
+          },
+          classification: r.data.classification,
+        };
+      })
+      .filter((c): c is NonNullable<typeof c> => c !== null);
+
+    if (classifications.length > 0 && baseOcrResult) {
+      const severity_levels = classifications.map(c => c.classification.severity);
+      let summary = 'Re-analyzed with your corrected values. Values appear within normal range.';
+      if (severity_levels.includes('high')) {
+        summary = 'Re-analyzed with your corrections. Some values are in the diabetes range. Please consult a healthcare provider.';
+      } else if (severity_levels.includes('moderate')) {
+        summary = 'Re-analyzed with your corrections. Some values indicate prediabetes or need monitoring.';
+      }
+
+      setResult({
+        type: 'analyze',
+        data: {
+          ...baseOcrResult,
+          classifications,
+          detected_values: classifications.map(c => ({
+            test_type: c.detected.test_type as TestType,
+            value: c.detected.value,
+            unit: c.detected.unit,
+            confidence: c.detected.confidence,
+          })),
+          summary,
+        },
+      });
+    } else {
+      setError('Re-analysis failed. Please check the values and try again.');
     }
 
     setIsLoading(false);
@@ -195,6 +269,17 @@ const Analyze = () => {
             <RiskAssessmentForm onSubmit={handleRiskPrediction} isLoading={isLoading} />
           )}
         </div>
+
+        {/* OCR Fields Editor — shown after upload analysis when fields were detected */}
+        {mode === 'upload' && ocrFields && Object.keys(ocrFields).length > 0 && !isLoading && (
+          <div className="mb-8 animate-fade-in-up">
+            <OcrFieldsEditor
+              extractedFields={ocrFields}
+              onReanalyze={handleOcrReanalyze}
+              isLoading={isLoading}
+            />
+          </div>
+        )}
 
         {/* Loading State */}
         {isLoading && (

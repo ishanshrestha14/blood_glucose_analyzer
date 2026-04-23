@@ -84,6 +84,13 @@ export interface DetectedValue {
   row_text?: string;
 }
 
+export interface ExtractedField {
+  value: number;
+  unit: string;
+  confidence: number;
+  low_confidence: boolean;
+}
+
 export interface QualityCheck {
   is_sufficient: boolean;
   word_count: number;
@@ -127,6 +134,7 @@ export interface AnalyzeResponse {
   validation: ValidationResult;
   extracted_text: string;
   detected_values: DetectedValue[];
+  extracted_fields: Record<string, ExtractedField>;
   classifications: ClassificationWithDetection[];
   summary: string;
   analysis_timestamp?: string;
