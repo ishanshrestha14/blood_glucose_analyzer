@@ -36,6 +36,30 @@ from sklearn.metrics import (
 # Model persistence
 import joblib
 
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+from sklearn.calibration import CalibratedClassifierCV
+
+# Column indices where 0 means "data missing" (biologically impossible)
+# Pregnancies(0) is intentionally excluded — 0 is valid there.
+ZERO_INVALID_INDICES = [1, 2, 3, 4, 5]  # Glucose, BloodPressure, SkinThickness, Insulin, BMI
+
+
+class FeatureEngineer(BaseEstimator, TransformerMixin):
+    """Converts impossible zeros to NaN and appends two interaction features."""
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X = np.array(X, dtype=float).copy()
+        for idx in ZERO_INVALID_INDICES:
+            X[:, idx] = np.where(X[:, idx] == 0, np.nan, X[:, idx])
+        glucose_bmi            = X[:, 1] * X[:, 5]  # Glucose × BMI
+        age_insulin_resistance = X[:, 7] * X[:, 5]  # Age × BMI
+        return np.column_stack([X, glucose_bmi, age_insulin_resistance])
+
 # Constants
 RANDOM_STATE = 42
 TEST_SIZE = 0.2
