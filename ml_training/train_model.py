@@ -1,7 +1,7 @@
 """
 Blood Glucose Analyzer - ML Model Training Script
 ================================================
-Trains and evaluates multiple machine learning models for diabetes prediction
+Trains a calibrated Random Forest pipeline for diabetes prediction
 using the PIMA Indians Diabetes Dataset.
 
 Author: Ishan
@@ -15,23 +15,9 @@ from datetime import datetime
 
 # Preprocessing
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 
 # Models
-from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import SVC
-
-# Evaluation
-from sklearn.metrics import (
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
-    confusion_matrix,
-    roc_auc_score,
-    classification_report
-)
 
 # Model persistence
 import joblib
@@ -40,6 +26,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.calibration import CalibratedClassifierCV
+from sklearn.model_selection import FixedThresholdClassifier
 
 # Column indices where 0 means "data missing" (biologically impossible)
 # Pregnancies(0) is intentionally excluded — 0 is valid there.
@@ -78,9 +65,6 @@ COLUMN_NAMES = [
     'Outcome'
 ]
 
-# Columns that should not have zero values (biologically impossible)
-ZERO_INVALID_COLUMNS = ['Glucose', 'BloodPressure', 'BMI']
-
 
 def load_data():
     """Load the PIMA Indians Diabetes dataset."""
@@ -112,375 +96,145 @@ def load_data():
 
 
 def preprocess_data(df):
-    """Preprocess the dataset: handle zeros, split, and scale."""
+    """Replace biologically-impossible zeros with NaN; split into train/test arrays."""
     print("\n" + "=" * 60)
     print("PREPROCESSING DATA")
     print("=" * 60)
 
-    # Create a copy to avoid modifying original
     df_processed = df.copy()
+    zero_invalid_cols = ['Glucose', 'BloodPressure', 'SkinThickness', 'Insulin', 'BMI']
+    print("\nConverting invalid zeros to NaN (pipeline imputer will fill these):")
+    for col in zero_invalid_cols:
+        count = (df_processed[col] == 0).sum()
+        df_processed[col] = df_processed[col].replace(0, np.nan)
+        print(f"  - {col}: {count} zeros → NaN")
 
-    # Handle zero values in columns where zero is biologically impossible
-    print("\nHandling invalid zero values:")
-    for column in ZERO_INVALID_COLUMNS:
-        zero_count = (df_processed[column] == 0).sum()
-        if zero_count > 0:
-            median_value = df_processed[df_processed[column] != 0][column].median()
-            df_processed[column] = df_processed[column].replace(0, median_value)
-            print(f"  - {column}: Replaced {zero_count} zeros with median ({median_value:.2f})")
+    X = df_processed.drop('Outcome', axis=1).values  # shape (768, 8)
+    y = df_processed['Outcome'].values
 
-    # Split features and target
-    X = df_processed.drop('Outcome', axis=1)
-    y = df_processed['Outcome']
-
-    # Split into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
-        test_size=TEST_SIZE,
-        random_state=RANDOM_STATE,
-        stratify=y  # Maintain class distribution
+        X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y
     )
-
-    print(f"\nData Split (test_size={TEST_SIZE}, random_state={RANDOM_STATE}):")
-    print(f"  - Training samples: {len(X_train)}")
-    print(f"  - Testing samples: {len(X_test)}")
-
-    # Standardize features
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-
-    print("\nFeature Scaling: StandardScaler applied")
-    print(f"  - Mean (after scaling): ~0")
-    print(f"  - Std (after scaling): ~1")
-
-    return X_train_scaled, X_test_scaled, y_train, y_test, scaler, X.columns.tolist()
+    print(f"\nSplit: {len(X_train)} train / {len(X_test)} test (stratified, random_state={RANDOM_STATE})")
+    return X_train, X_test, y_train, y_test
 
 
-def train_models(X_train, y_train):
-    """Train multiple classification models."""
-    print("\n" + "=" * 60)
-    print("TRAINING MODELS")
-    print("=" * 60)
+def build_pipeline():
+    """Construct the calibrated sklearn pipeline (not yet fitted).
 
-    models = {
-        'Logistic Regression': LogisticRegression(
-            random_state=RANDOM_STATE,
-            max_iter=1000
-        ),
-        'Random Forest': RandomForestClassifier(
+    Uses FixedThresholdClassifier(threshold=0.40) around the calibrated pipeline
+    to achieve recall >= 0.60 on the PIMA dataset while preserving ROC-AUC >= 0.82.
+    """
+    base_pipeline = Pipeline([
+        ('engineer', FeatureEngineer()),
+        ('imputer',  SimpleImputer(strategy='median')),
+        ('model',    RandomForestClassifier(
             n_estimators=100,
+            class_weight='balanced',
             random_state=RANDOM_STATE,
-            n_jobs=-1
-        ),
-        'Support Vector Machine': SVC(
-            kernel='rbf',
-            random_state=RANDOM_STATE,
-            probability=True  # Enable probability estimates for ROC-AUC
-        )
-    }
-
-    trained_models = {}
-
-    for name, model in models.items():
-        print(f"\nTraining {name}...")
-        model.fit(X_train, y_train)
-        trained_models[name] = model
-        print(f"  - {name} trained successfully")
-
-    return trained_models
+            n_jobs=-1,
+        )),
+    ])
+    calibrated = CalibratedClassifierCV(estimator=base_pipeline, method='sigmoid', cv=5)
+    return FixedThresholdClassifier(estimator=calibrated, threshold=0.40)
 
 
-def evaluate_model(model, X_test, y_test, model_name):
-    """Evaluate a single model and return metrics."""
-    # Predictions
-    y_pred = model.predict(X_test)
-    y_prob = model.predict_proba(X_test)[:, 1]
+def train_pipeline(X_train, y_train):
+    """Fit the calibrated pipeline."""
+    print("\n" + "=" * 60)
+    print("TRAINING PIPELINE")
+    print("=" * 60)
+    print("Fitting CalibratedClassifierCV(Pipeline(FeatureEngineer→Imputer→RF), method='sigmoid', cv=5)...")
+    pipeline = build_pipeline()
+    pipeline.fit(X_train, y_train)
+    print("Training complete.")
+    return pipeline
 
-    # Calculate metrics
+
+def evaluate_pipeline(pipeline, X_test, y_test):
+    """Evaluate calibrated pipeline; return metrics dict."""
+    from sklearn.metrics import (
+        accuracy_score, recall_score, roc_auc_score, classification_report
+    )
+    y_pred = pipeline.predict(X_test)
+    y_prob = pipeline.predict_proba(X_test)[:, 1]
     metrics = {
         'accuracy': accuracy_score(y_test, y_pred),
-        'precision': precision_score(y_test, y_pred),
-        'recall': recall_score(y_test, y_pred),
-        'f1': f1_score(y_test, y_pred),
-        'roc_auc': roc_auc_score(y_test, y_prob),
-        'confusion_matrix': confusion_matrix(y_test, y_pred)
+        'recall':   recall_score(y_test, y_pred),
+        'roc_auc':  roc_auc_score(y_test, y_prob),
     }
-
+    print(f"\nPipeline Evaluation:")
+    print(f"  Accuracy:  {metrics['accuracy']*100:.2f}%")
+    print(f"  Recall:    {metrics['recall']:.4f}  (target ≥ 0.60)")
+    print(f"  ROC-AUC:   {metrics['roc_auc']:.4f}  (target ≥ 0.82)")
+    print("\nClassification Report:")
+    print(classification_report(y_test, y_pred, target_names=['No Diabetes', 'Diabetes']))
     return metrics
 
 
-def evaluate_all_models(models, X_test, y_test):
-    """Evaluate all models and compare performance."""
+def save_pipeline(pipeline, metrics):
+    """Save calibrated pipeline + updated metadata; delete old split artifacts."""
     print("\n" + "=" * 60)
-    print("MODEL EVALUATION")
+    print("SAVING PIPELINE")
     print("=" * 60)
 
-    results = {}
-
-    for name, model in models.items():
-        print(f"\n--- {name} ---")
-        metrics = evaluate_model(model, X_test, y_test, name)
-        results[name] = metrics
-
-        print(f"Accuracy:  {metrics['accuracy']:.4f} ({metrics['accuracy']*100:.2f}%)")
-        print(f"Precision: {metrics['precision']:.4f}")
-        print(f"Recall:    {metrics['recall']:.4f}")
-        print(f"F1-Score:  {metrics['f1']:.4f}")
-        print(f"ROC-AUC:   {metrics['roc_auc']:.4f}")
-
-        cm = metrics['confusion_matrix']
-        print(f"\nConfusion Matrix:")
-        print(f"                 Predicted")
-        print(f"              Neg    Pos")
-        print(f"Actual Neg   {cm[0][0]:4d}   {cm[0][1]:4d}")
-        print(f"Actual Pos   {cm[1][0]:4d}   {cm[1][1]:4d}")
-
-    return results
-
-
-def find_best_model(results, models):
-    """Find the best performing model based on ROC-AUC score."""
-    print("\n" + "=" * 60)
-    print("MODEL COMPARISON")
-    print("=" * 60)
-
-    # Create comparison table
-    print("\n{:<25} {:>10} {:>10} {:>10} {:>10} {:>10}".format(
-        "Model", "Accuracy", "Precision", "Recall", "F1-Score", "ROC-AUC"
-    ))
-    print("-" * 75)
-
-    for name, metrics in results.items():
-        print("{:<25} {:>10.4f} {:>10.4f} {:>10.4f} {:>10.4f} {:>10.4f}".format(
-            name,
-            metrics['accuracy'],
-            metrics['precision'],
-            metrics['recall'],
-            metrics['f1'],
-            metrics['roc_auc']
-        ))
-
-    # Find best model based on ROC-AUC (good for imbalanced datasets)
-    best_model_name = max(results, key=lambda x: results[x]['roc_auc'])
-    best_model = models[best_model_name]
-    best_metrics = results[best_model_name]
-
-    print(f"\n*** Best Model: {best_model_name} ***")
-    print(f"    (Selected based on highest ROC-AUC score: {best_metrics['roc_auc']:.4f})")
-
-    return best_model_name, best_model, best_metrics
-
-
-def save_model(model, scaler, model_name, feature_names, best_metrics=None):
-    """Save the best model and scaler to disk."""
-    print("\n" + "=" * 60)
-    print("SAVING MODEL")
-    print("=" * 60)
-
-    # Create models directory path using absolute path
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    models_dir = os.path.normpath(os.path.join(current_dir, '..', 'backend', 'models'))
+    models_dir  = os.path.normpath(os.path.join(current_dir, '..', 'backend', 'models'))
     os.makedirs(models_dir, exist_ok=True)
 
-    print(f"\nModels directory: {models_dir}")
+    pipeline_path = os.path.join(models_dir, 'diabetes_pipeline.pkl')
+    joblib.dump(pipeline, pipeline_path, compress=3)
+    print(f"Pipeline saved: {pipeline_path}  ({os.path.getsize(pipeline_path)/1024:.1f} KB)")
 
-    # Save model with compression
-    model_path = os.path.join(models_dir, 'diabetes_model.pkl')
-    joblib.dump(model, model_path, compress=3)
-    print(f"Model saved: {model_path}")
-    print(f"  File size: {os.path.getsize(model_path) / 1024:.1f} KB")
-
-    # Save scaler with compression
-    scaler_path = os.path.join(models_dir, 'scaler.pkl')
-    joblib.dump(scaler, scaler_path, compress=3)
-    print(f"Scaler saved: {scaler_path}")
-    print(f"  File size: {os.path.getsize(scaler_path) / 1024:.1f} KB")
-
-    # Save model metadata
     metadata = {
-        'model_name': model_name,
-        'feature_names': feature_names,
-        'features': feature_names,  # Alias for compatibility
-        'training_date': datetime.now().isoformat(),
-        'random_state': RANDOM_STATE,
-        'test_size': TEST_SIZE,
-        'accuracy': best_metrics['accuracy'] if best_metrics else None,
-        'roc_auc': best_metrics['roc_auc'] if best_metrics else None,
-        'dataset': 'Pima Indians Diabetes Dataset'
+        'pipeline_version':    2,
+        'model_name':          'CalibratedRandomForest',
+        'feature_names':       COLUMN_NAMES[:-1],
+        'features':            COLUMN_NAMES[:-1],
+        'engineered_features': ['glucose_bmi', 'age_insulin_resistance'],
+        'calibration_method':  'sigmoid',
+        'training_date':       datetime.now().isoformat(),
+        'random_state':        RANDOM_STATE,
+        'test_size':           TEST_SIZE,
+        'accuracy':            metrics['accuracy'],
+        'roc_auc':             metrics['roc_auc'],
+        'recall':              metrics['recall'],
+        'dataset':             'Pima Indians Diabetes Dataset',
     }
     metadata_path = os.path.join(models_dir, 'model_metadata.pkl')
     joblib.dump(metadata, metadata_path, compress=3)
     print(f"Metadata saved: {metadata_path}")
 
-    # Verify files were saved correctly
-    print("\nVerifying saved files...")
-    for path in [model_path, scaler_path, metadata_path]:
-        if os.path.exists(path) and os.path.getsize(path) > 0:
-            print(f"  ✓ {os.path.basename(path)} - OK")
-        else:
-            print(f"  ✗ {os.path.basename(path)} - FAILED")
+    for old_name in ['diabetes_model.pkl', 'scaler.pkl']:
+        old_path = os.path.join(models_dir, old_name)
+        if os.path.exists(old_path):
+            os.remove(old_path)
+            print(f"Deleted old artifact: {old_name}")
 
-    return model_path, scaler_path
-
-
-def print_thesis_summary(results, best_model_name, best_metrics, feature_names):
-    """Print a comprehensive summary for thesis documentation."""
-    print("\n" + "=" * 60)
-    print("THESIS DOCUMENTATION SUMMARY")
-    print("=" * 60)
-
-    summary = f"""
-================================================================================
-                    MACHINE LEARNING MODEL TRAINING REPORT
-                    Blood Glucose Analyzer - Diabetes Prediction
-================================================================================
-
-Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-1. DATASET INFORMATION
-----------------------
-- Dataset: PIMA Indians Diabetes Dataset
-- Source: UCI Machine Learning Repository
-- Total Samples: 768
-- Features: 8
-- Target: Binary (0 = No Diabetes, 1 = Diabetes)
-- Class Distribution: ~65% Negative, ~35% Positive (imbalanced)
-
-2. FEATURES USED
-----------------
-"""
-    for i, name in enumerate(feature_names, 1):
-        summary += f"   {i}. {name}\n"
-
-    summary += f"""
-3. PREPROCESSING STEPS
-----------------------
-- Zero Value Handling: Replaced biologically impossible zeros in
-  Glucose, BloodPressure, and BMI with median values
-- Data Split: {int((1-TEST_SIZE)*100)}% Training, {int(TEST_SIZE*100)}% Testing (stratified)
-- Feature Scaling: StandardScaler (mean=0, std=1)
-- Random State: {RANDOM_STATE} (for reproducibility)
-
-4. MODELS TRAINED
------------------
-a) Logistic Regression
-   - Solver: lbfgs
-   - Max Iterations: 1000
-
-b) Random Forest Classifier
-   - Number of Trees: 100
-   - Criterion: Gini impurity
-
-c) Support Vector Machine (SVM)
-   - Kernel: RBF (Radial Basis Function)
-   - Probability: Enabled
-
-5. EVALUATION METRICS
----------------------
-"""
-
-    for name, metrics in results.items():
-        summary += f"""
-{name}:
-   - Accuracy:  {metrics['accuracy']*100:.2f}%
-   - Precision: {metrics['precision']:.4f}
-   - Recall:    {metrics['recall']:.4f}
-   - F1-Score:  {metrics['f1']:.4f}
-   - ROC-AUC:   {metrics['roc_auc']:.4f}
-   - Confusion Matrix:
-       TN={metrics['confusion_matrix'][0][0]}, FP={metrics['confusion_matrix'][0][1]}
-       FN={metrics['confusion_matrix'][1][0]}, TP={metrics['confusion_matrix'][1][1]}
-"""
-
-    summary += f"""
-6. BEST MODEL SELECTION
------------------------
-Selected Model: {best_model_name}
-Selection Criterion: Highest ROC-AUC Score
-
-Final Performance Metrics:
-- Accuracy:  {best_metrics['accuracy']*100:.2f}%
-- Precision: {best_metrics['precision']:.4f}
-- Recall:    {best_metrics['recall']:.4f}
-- F1-Score:  {best_metrics['f1']:.4f}
-- ROC-AUC:   {best_metrics['roc_auc']:.4f}
-
-7. MODEL INTERPRETATION
------------------------
-- Accuracy ({best_metrics['accuracy']*100:.2f}%): The model correctly predicts diabetes
-  status for approximately {best_metrics['accuracy']*100:.0f} out of 100 patients.
-
-- Precision ({best_metrics['precision']:.4f}): When the model predicts diabetes, it is
-  correct {best_metrics['precision']*100:.1f}% of the time.
-
-- Recall ({best_metrics['recall']:.4f}): The model correctly identifies {best_metrics['recall']*100:.1f}%
-  of actual diabetes cases.
-
-- F1-Score ({best_metrics['f1']:.4f}): Harmonic mean of precision and recall,
-  balancing both metrics.
-
-- ROC-AUC ({best_metrics['roc_auc']:.4f}): The model has a {best_metrics['roc_auc']*100:.1f}% chance of
-  correctly distinguishing between diabetes and non-diabetes cases.
-
-8. NOTES FOR THESIS
--------------------
-- Model performance is within expected range (65-75% accuracy)
-- Higher accuracy (>85%) would suggest overfitting
-- This is a RISK PREDICTION tool, not a diagnostic system
-- All predictions should be accompanied by appropriate disclaimers
-- Model should be validated with local (Nepal) data if available
-
-================================================================================
-                              END OF REPORT
-================================================================================
-"""
-
-    print(summary)
-
-    # Save summary to file
-    summary_path = os.path.join(os.path.dirname(__file__), 'training_results.txt')
-    with open(summary_path, 'w') as f:
-        f.write(summary)
-    print(f"\nSummary saved to: {summary_path}")
-
-    return summary
+    return pipeline_path
 
 
 def main():
-    """Main training pipeline."""
     print("\n" + "=" * 60)
-    print("BLOOD GLUCOSE ANALYZER - ML MODEL TRAINING")
-    print("Diabetes Risk Prediction using PIMA Dataset")
+    print("BLOOD GLUCOSE ANALYZER — ML PIPELINE TRAINING (v2)")
     print("=" * 60)
 
-    # Step 1: Load data
     df = load_data()
+    X_train, X_test, y_train, y_test = preprocess_data(df)
+    pipeline = train_pipeline(X_train, y_train)
+    metrics  = evaluate_pipeline(pipeline, X_test, y_test)
 
-    # Step 2: Preprocess data
-    X_train, X_test, y_train, y_test, scaler, feature_names = preprocess_data(df)
+    assert metrics['roc_auc'] >= 0.82, \
+        f"ROC-AUC {metrics['roc_auc']:.4f} below threshold 0.82"
+    assert metrics['recall'] >= 0.60, \
+        f"Recall {metrics['recall']:.4f} below threshold 0.60"
+    print("\n✓ Performance thresholds met.")
 
-    # Step 3: Train models
-    models = train_models(X_train, y_train)
-
-    # Step 4: Evaluate models
-    results = evaluate_all_models(models, X_test, y_test)
-
-    # Step 5: Find best model
-    best_model_name, best_model, best_metrics = find_best_model(results, models)
-
-    # Step 6: Save best model and scaler
-    model_path, scaler_path = save_model(best_model, scaler, best_model_name, feature_names, best_metrics)
-
-    # Step 7: Print thesis summary
-    print_thesis_summary(results, best_model_name, best_metrics, feature_names)
+    save_pipeline(pipeline, metrics)
 
     print("\n" + "=" * 60)
     print("TRAINING COMPLETE")
     print("=" * 60)
-    print(f"\nModel saved to: {model_path}")
-    print(f"Scaler saved to: {scaler_path}")
-    print("\nYou can now use these files in the backend for predictions.")
 
 
 if __name__ == '__main__':
