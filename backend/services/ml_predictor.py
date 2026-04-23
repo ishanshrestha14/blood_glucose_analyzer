@@ -17,8 +17,7 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 BACKEND_DIR = os.path.dirname(CURRENT_DIR)  # Go up one level to backend/
 MODELS_DIR = os.path.join(BACKEND_DIR, 'models')
 
-MODEL_PATH = os.path.join(MODELS_DIR, 'diabetes_model.pkl')
-SCALER_PATH = os.path.join(MODELS_DIR, 'scaler.pkl')
+PIPELINE_PATH = os.path.join(MODELS_DIR, 'diabetes_pipeline.pkl')
 METADATA_PATH = os.path.join(MODELS_DIR, 'model_metadata.pkl')
 
 
@@ -36,10 +35,8 @@ FEATURE_ORDER = [
 
 # Default values for optional inputs (based on dataset medians)
 DEFAULT_VALUES = {
-    'pregnancies': 0,
-    'insulin': 0,  # 0 indicates missing in original dataset
-    'skin_thickness': 0,  # 0 indicates missing in original dataset
-    'diabetes_pedigree': 0.3725  # Median from dataset
+    'pregnancies':      0.0,     # 0 pregnancies is biologically valid
+    'diabetes_pedigree': 0.3725, # median from PIMA dataset
 }
 
 # Validation ranges for inputs
@@ -71,71 +68,55 @@ DISCLAIMER = (
 
 
 class MLPredictor:
-    """Diabetes risk prediction using trained ML model."""
+    """Diabetes risk prediction using a calibrated sklearn pipeline."""
 
     def __init__(self):
-        """Initialize the predictor by loading model files."""
-        self.model = None
-        self.scaler = None
-        self.metadata = None
+        self.pipeline  = None
+        self.scaler    = None   # kept as None — pipeline handles all preprocessing internally
+        self.metadata  = None
         self.initialized = False
-        self.init_error = None
-
+        self.init_error  = None
         self._load_models()
 
     def _load_models(self):
-        """Load the trained model, scaler, and metadata from files."""
+        if not os.path.exists(PIPELINE_PATH):
+            self.init_error = f"Pipeline file not found: {PIPELINE_PATH}"
+            return
         try:
-            # Check if model files exist
-            if not os.path.exists(MODEL_PATH):
-                self.init_error = f"Model file not found: {MODEL_PATH}"
-                return
+            # The pipeline was pickled when FeatureEngineer was defined in __main__
+            # (the training script). Patch __main__ so joblib can find the class.
+            import sys
+            from services.feature_engineer import FeatureEngineer
+            main_mod = sys.modules.get('__main__')
+            if main_mod is not None and not hasattr(main_mod, 'FeatureEngineer'):
+                main_mod.FeatureEngineer = FeatureEngineer
 
-            if not os.path.exists(SCALER_PATH):
-                self.init_error = f"Scaler file not found: {SCALER_PATH}"
-                return
-
-            # Load model
-            with open(MODEL_PATH, 'rb') as f:
-                self.model = joblib.load(f)
-
-            # Load scaler
-            with open(SCALER_PATH, 'rb') as f:
-                self.scaler = joblib.load(f)
-
-            # Load metadata (optional)
+            self.pipeline = joblib.load(PIPELINE_PATH)
             if os.path.exists(METADATA_PATH):
-                with open(METADATA_PATH, 'rb') as f:
-                    self.metadata = joblib.load(f)
+                self.metadata = joblib.load(METADATA_PATH)
             else:
-                # Default metadata if file not found
                 self.metadata = {
-                    'model_name': 'Random Forest Classifier',
-                    'accuracy': 0.7338,
-                    'training_date': 'Unknown'
+                    'model_name': 'CalibratedRandomForest',
+                    'pipeline_version': 2,
                 }
-
             self.initialized = True
-
         except Exception as e:
-            self.init_error = f"Error loading model files: {str(e)}"
-            self.initialized = False
+            self.init_error = f"Error loading pipeline: {str(e)}"
 
     def _get_model_info(self) -> Dict[str, Any]:
-        """Get information about the loaded model."""
         if not self.metadata:
-            return {
-                'name': 'Unknown',
-                'accuracy': None,
-                'training_date': None
-            }
-
+            return {'name': 'Unknown', 'accuracy': None, 'training_date': None}
         return {
-            'name': self.metadata.get('model_name', 'Random Forest Classifier'),
-            'accuracy': self.metadata.get('accuracy', 0.7338),
-            'training_date': self.metadata.get('training_date', 'Unknown'),
-            'features': self.metadata.get('features', FEATURE_ORDER),
-            'dataset': self.metadata.get('dataset', 'Pima Indians Diabetes Dataset')
+            'name':                self.metadata.get('model_name', 'CalibratedRandomForest'),
+            'pipeline_version':    self.metadata.get('pipeline_version', 2),
+            'accuracy':            self.metadata.get('accuracy'),
+            'roc_auc':             self.metadata.get('roc_auc'),
+            'recall':              self.metadata.get('recall'),
+            'calibration_method':  self.metadata.get('calibration_method', 'sigmoid'),
+            'training_date':       self.metadata.get('training_date', 'Unknown'),
+            'features':            self.metadata.get('feature_names', FEATURE_ORDER),
+            'engineered_features': self.metadata.get('engineered_features', []),
+            'dataset':             self.metadata.get('dataset', 'Pima Indians Diabetes Dataset'),
         }
 
 
@@ -166,7 +147,11 @@ def validate_inputs(input_data: Dict[str, Any]) -> Tuple[bool, List[str], Dict[s
         except (ValueError, TypeError):
             errors.append(f"{VALIDATION_RANGES[field]['name']} must be a number")
 
-    # Optional fields with defaults
+    # Optional fields — only include in cleaned if explicitly provided.
+    # Fields absent here will fall back to np.nan inside predict_diabetes_risk()
+    # so the pipeline's imputer handles them correctly.
+    # pregnancies and diabetes_pedigree have well-defined defaults and are always
+    # populated; insulin and skin_thickness are left absent when not supplied.
     optional_fields = ['insulin', 'skin_thickness', 'pregnancies', 'diabetes_pedigree']
 
     for field in optional_fields:
@@ -175,10 +160,8 @@ def validate_inputs(input_data: Dict[str, Any]) -> Tuple[bool, List[str], Dict[s
                 value = float(input_data[field])
                 cleaned[field] = value
             except (ValueError, TypeError):
-                # Use default if invalid
-                cleaned[field] = DEFAULT_VALUES.get(field, 0)
-        else:
-            cleaned[field] = DEFAULT_VALUES.get(field, 0)
+                # Leave absent so the pipeline imputer handles it
+                pass
 
     # Validate ranges for all provided values
     for field, value in cleaned.items():
@@ -301,38 +284,28 @@ def predict_diabetes_risk(input_data: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Dictionary containing prediction results
     """
-    # Get predictor instance
     predictor = get_predictor()
 
-    # Check if model is initialized
     if not predictor.initialized:
         return {
             'success': False,
-            'error': predictor.init_error or "Model not initialized",
-            'message': (
-                "The prediction model could not be loaded. "
-                "Please ensure model files are properly installed."
-            )
+            'error':   predictor.init_error or "Model not initialized",
+            'message': "The prediction model could not be loaded. Please ensure model files are properly installed.",
         }
 
-    # Validate inputs
     is_valid, errors, cleaned_data = validate_inputs(input_data)
-
     if not is_valid:
         return {
             'success': False,
             'error': 'Validation failed',
             'validation_errors': errors,
-            'message': "Please correct the following issues: " + "; ".join(errors)
+            'message': "Please correct the following issues: " + "; ".join(errors),
         }
 
-    # Track which factors were provided vs using defaults
     required_factors = ['glucose', 'bmi', 'age', 'blood_pressure']
     optional_factors = ['insulin', 'skin_thickness', 'pregnancies', 'diabetes_pedigree']
-
     factors_provided = required_factors.copy()
-    factors_missing = []
-
+    factors_missing  = []
     for factor in optional_factors:
         if factor in input_data and input_data[factor] is not None:
             factors_provided.append(factor)
@@ -340,72 +313,59 @@ def predict_diabetes_risk(input_data: Dict[str, Any]) -> Dict[str, Any]:
             factors_missing.append(factor)
 
     try:
-        # Prepare features in correct order
-        features = [
+        import numpy as np
+
+        # Build raw 8-feature row in FEATURE_ORDER.
+        # Missing optional fields → NaN; the pipeline's imputer fills them.
+        features = np.array([[
             cleaned_data.get('pregnancies', DEFAULT_VALUES['pregnancies']),
             cleaned_data['glucose'],
             cleaned_data['blood_pressure'],
-            cleaned_data.get('skin_thickness', DEFAULT_VALUES['skin_thickness']),
-            cleaned_data.get('insulin', DEFAULT_VALUES['insulin']),
+            cleaned_data.get('skin_thickness', np.nan),
+            cleaned_data.get('insulin', np.nan),
             cleaned_data['bmi'],
             cleaned_data.get('diabetes_pedigree', DEFAULT_VALUES['diabetes_pedigree']),
-            cleaned_data['age']
-        ]
+            cleaned_data['age'],
+        ]])
 
-        # Convert to 2D array for sklearn
-        import numpy as np
-        features_array = np.array(features).reshape(1, -1)
+        probabilities    = predictor.pipeline.predict_proba(features)
+        risk_probability = float(probabilities[0][1])
 
-        # Scale features
-        scaled_features = predictor.scaler.transform(features_array)
-
-        # Get prediction probability
-        # predict_proba returns [[prob_class_0, prob_class_1]]
-        probabilities = predictor.model.predict_proba(scaled_features)
-        risk_probability = float(probabilities[0][1])  # Probability of diabetes (class 1)
-
-        # Determine risk category
-        risk_category = get_risk_category(risk_probability)
+        risk_category    = get_risk_category(risk_probability)
         risk_description = get_risk_description(risk_category)
         confidence_level = get_confidence_level(factors_provided, factors_missing)
-
-        # Get model info
-        model_info = predictor._get_model_info()
+        model_info       = predictor._get_model_info()
 
         return {
-            'success': True,
+            'success':          True,
             'risk_probability': round(risk_probability, 4),
-            'risk_percentage': round(risk_probability * 100, 1),
-            'risk_category': risk_category,
+            'risk_percentage':  round(risk_probability * 100, 1),
+            'risk_category':    risk_category,
             'risk_description': risk_description,
             'confidence_level': confidence_level,
             'factors_provided': factors_provided,
-            'factors_missing': factors_missing,
+            'factors_missing':  factors_missing,
             'input_values': {
-                'glucose': cleaned_data['glucose'],
-                'bmi': round(cleaned_data['bmi'], 1),
-                'age': int(cleaned_data['age']),
-                'blood_pressure': cleaned_data['blood_pressure'],
-                'insulin': cleaned_data.get('insulin', DEFAULT_VALUES['insulin']),
-                'skin_thickness': cleaned_data.get('skin_thickness', DEFAULT_VALUES['skin_thickness']),
-                'pregnancies': int(cleaned_data.get('pregnancies', DEFAULT_VALUES['pregnancies'])),
+                'glucose':           cleaned_data['glucose'],
+                'bmi':               round(cleaned_data['bmi'], 1),
+                'age':               int(cleaned_data['age']),
+                'blood_pressure':    cleaned_data['blood_pressure'],
+                'insulin':           cleaned_data.get('insulin'),
+                'skin_thickness':    cleaned_data.get('skin_thickness'),
+                'pregnancies':       int(cleaned_data.get('pregnancies', DEFAULT_VALUES['pregnancies'])),
                 'diabetes_pedigree': round(
-                    cleaned_data.get('diabetes_pedigree', DEFAULT_VALUES['diabetes_pedigree']),
-                    4
-                )
+                    cleaned_data.get('diabetes_pedigree', DEFAULT_VALUES['diabetes_pedigree']), 4
+                ),
             },
             'model_info': model_info,
-            'disclaimer': DISCLAIMER
+            'disclaimer': DISCLAIMER,
         }
 
     except Exception as e:
         return {
             'success': False,
-            'error': f"Prediction error: {str(e)}",
-            'message': (
-                "An error occurred while making the prediction. "
-                "Please verify your inputs and try again."
-            )
+            'error':   f"Prediction error: {str(e)}",
+            'message': "An error occurred while making the prediction. Please verify your inputs and try again.",
         }
 
 
@@ -428,19 +388,20 @@ def predict_diabetes_risk_with_explanation(input_data: Dict[str, Any]) -> Dict[s
     try:
         import numpy as np
 
-        # Reconstruct features in model order (same as predict_diabetes_risk)
-        features = [
+        features = np.array([[
             cleaned_data.get('pregnancies', DEFAULT_VALUES['pregnancies']),
             cleaned_data['glucose'],
             cleaned_data['blood_pressure'],
-            cleaned_data.get('skin_thickness', DEFAULT_VALUES['skin_thickness']),
-            cleaned_data.get('insulin', DEFAULT_VALUES['insulin']),
+            cleaned_data.get('skin_thickness', np.nan),
+            cleaned_data.get('insulin', np.nan),
             cleaned_data['bmi'],
             cleaned_data.get('diabetes_pedigree', DEFAULT_VALUES['diabetes_pedigree']),
-            cleaned_data['age']
-        ]
-        features_array = np.array(features).reshape(1, -1)
-        scaled_features = predictor.scaler.transform(features_array)
+            cleaned_data['age'],
+        ]])
+
+        # SHAP needs transformed features. Extract fitted inner pipeline from one calibration fold.
+        inner_pipeline = predictor.pipeline.calibrated_classifiers_[0].estimator
+        scaled_features = inner_pipeline[:-1].transform(features)  # engineer + imputer steps only
 
         # Get SHAP explanation
         from services.explainability_service import get_explainability_service
@@ -480,9 +441,13 @@ def get_feature_importance() -> Dict[str, Any]:
         }
 
     try:
+        # Extract the inner RandomForest from the calibrated pipeline
+        inner_pipeline = predictor.pipeline.calibrated_classifiers_[0].estimator
+        inner_model = inner_pipeline[-1]  # last step is the classifier
+
         # Check if model has feature_importances_ (tree-based models)
-        if hasattr(predictor.model, 'feature_importances_'):
-            importances = predictor.model.feature_importances_
+        if hasattr(inner_model, 'feature_importances_'):
+            importances = inner_model.feature_importances_
 
             # Create feature importance dictionary
             feature_importance = {}
@@ -583,14 +548,14 @@ def get_input_requirements() -> Dict[str, Any]:
                 'name': 'Insulin',
                 'unit': 'μU/mL',
                 'description': '2-hour serum insulin',
-                'default': DEFAULT_VALUES['insulin'],
+                'default': None,  # imputed by pipeline when absent
                 'range': VALIDATION_RANGES['insulin']
             },
             'skin_thickness': {
                 'name': 'Skin Thickness',
                 'unit': 'mm',
                 'description': 'Triceps skin fold thickness',
-                'default': DEFAULT_VALUES['skin_thickness'],
+                'default': None,  # imputed by pipeline when absent
                 'range': VALIDATION_RANGES['skin_thickness']
             },
             'pregnancies': {
@@ -621,14 +586,12 @@ def check_model_status() -> Dict[str, Any]:
     predictor = get_predictor()
 
     return {
-        'initialized': predictor.initialized,
-        'error': predictor.init_error,
-        'model_info': predictor._get_model_info() if predictor.initialized else None,
-        'model_path': MODEL_PATH,
-        'scaler_path': SCALER_PATH,
+        'initialized':   predictor.initialized,
+        'error':         predictor.init_error,
+        'model_info':    predictor._get_model_info() if predictor.initialized else None,
+        'pipeline_path': PIPELINE_PATH,
         'files_exist': {
-            'model': os.path.exists(MODEL_PATH),
-            'scaler': os.path.exists(SCALER_PATH),
-            'metadata': os.path.exists(METADATA_PATH)
-        }
+            'pipeline': os.path.exists(PIPELINE_PATH),
+            'metadata': os.path.exists(METADATA_PATH),
+        },
     }
