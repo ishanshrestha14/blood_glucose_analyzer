@@ -192,12 +192,26 @@ class DatabaseService:
         finally:
             conn.close()
 
+    _TEST_TYPE_LABELS: Dict[str, str] = {
+        'fasting': 'FBS',
+        'hba1c': 'HbA1c',
+        'ppbs': 'PPBS',
+        'rbs': 'RBS',
+        'ogtt': 'OGTT',
+    }
+
     def get_trend_data(
         self,
         test_type: Optional[str] = None,
         days: int = 30,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Get glucose values over time for trend charts."""
+        """Get glucose values over time for trend charts.
+
+        If start_date and end_date are provided they take precedence over days.
+        Dates are ISO 8601 strings (YYYY-MM-DD).
+        """
         conn = self._get_connection()
         try:
             where_clauses = ["glucose_value IS NOT NULL"]
@@ -207,10 +221,11 @@ class DatabaseService:
                 where_clauses.append("test_type = ?")
                 params.append(test_type)
 
-            if days > 0:
-                where_clauses.append(
-                    "created_at >= datetime('now', ?)"
-                )
+            if start_date and end_date:
+                where_clauses.append("DATE(created_at) BETWEEN ? AND ?")
+                params.extend([start_date, end_date])
+            elif days > 0:
+                where_clauses.append("created_at >= datetime('now', ?)")
                 params.append(f'-{days} days')
 
             where = "WHERE " + " AND ".join(where_clauses)
@@ -233,6 +248,87 @@ class DatabaseService:
                 'data_points': data_points,
                 'count': len(data_points),
             }
+        finally:
+            conn.close()
+
+    def get_trend_insight(
+        self,
+        test_type: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Compute a plain-English insight sentence for the selected date window."""
+        trend = self.get_trend_data(
+            test_type=test_type,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        if not trend['success'] or trend['count'] < 2:
+            return {'success': True, 'insight': None}
+
+        points = trend['data_points']
+        first_value = float(points[0]['value'])
+        last_value  = float(points[-1]['value'])
+        delta = last_value - first_value
+        average = sum(float(p['value']) for p in points) / len(points)
+
+        if abs(delta) < 5:
+            direction = 'stable'
+        elif delta > 0:
+            direction = 'up'
+        else:
+            direction = 'down'
+
+        most_recent_risk = self._get_most_recent_risk(start_date, end_date)
+
+        label = self._TEST_TYPE_LABELS.get(test_type or '', 'glucose')
+        direction_words = {'up': 'rose', 'down': 'fell', 'stable': 'stayed stable'}
+        direction_word = direction_words[direction]
+
+        if direction == 'stable':
+            sentence = f"Your {label} stayed stable over the selected period"
+        else:
+            sentence = (
+                f"Your {label} {direction_word} by {abs(delta):.0f} mg/dL"
+                f" over the selected period"
+            )
+        if most_recent_risk:
+            sentence += f", and your most recent risk assessment was {most_recent_risk}"
+        sentence += "."
+
+        return {
+            'success': True,
+            'insight': {
+                'sentence':          sentence,
+                'first_value':       round(first_value, 1),
+                'last_value':        round(last_value, 1),
+                'delta':             round(delta, 1),
+                'average':           round(average, 1),
+                'count':             trend['count'],
+                'direction':         direction,
+                'most_recent_risk':  most_recent_risk,
+            },
+        }
+
+    def _get_most_recent_risk(
+        self,
+        start_date: Optional[str],
+        end_date: Optional[str],
+    ) -> Optional[str]:
+        """Return the most recent non-null risk_category in the date window."""
+        conn = self._get_connection()
+        try:
+            where_clauses = ["risk_category IS NOT NULL"]
+            params: List[Any] = []
+            if start_date and end_date:
+                where_clauses.append("DATE(created_at) BETWEEN ? AND ?")
+                params.extend([start_date, end_date])
+            where = "WHERE " + " AND ".join(where_clauses)
+            row = conn.execute(
+                f"SELECT risk_category FROM analyses {where} ORDER BY created_at DESC LIMIT 1",
+                params,
+            ).fetchone()
+            return row['risk_category'] if row else None
         finally:
             conn.close()
 
