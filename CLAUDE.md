@@ -46,7 +46,7 @@ Tackling these one by one in order:
 
 - [x] **1. OCR preprocessing + structured parsing** — OpenCV pipeline (deskew, CLAHE, adaptive threshold), relative y-threshold row grouping, reference range rejection, one-row lookahead. Returns `extracted_fields` dict with confidence metadata.
 - [x] **1b. Confidence-aware OCR UX** — `OcrFieldsEditor` component shows detected fields as editable inputs with green/amber confidence badges. Low confidence (<75%) gets amber border + warning. "Confirm & Re-analyze" re-runs ADA classification.
-- [ ] **2. PIMA data cleaning + retraining + calibration** — Zero-imputation for physiologically impossible values, feature engineering, class balancing, `CalibratedClassifierCV`, retrain and swap `.pkl`.
+- [x] **2. PIMA data cleaning + retraining + calibration** — Zero-imputation for physiologically impossible values, feature engineering, class balancing, `CalibratedClassifierCV`, retrain and swap `.pkl`.
 - [ ] **3. SHAP + human-readable explanations** — SHAP waterfall chart per prediction, plain-English factor summaries, improve `explainability_service.py`.
 - [ ] **5. Basic trends + insight sentence** — Date range filter on History page, auto-generated insight sentence (e.g. "Your FBS has trended down over 30 days").
 - [ ] **6. UI polish** — Mobile responsiveness audit, skeleton loaders, better empty/error states.

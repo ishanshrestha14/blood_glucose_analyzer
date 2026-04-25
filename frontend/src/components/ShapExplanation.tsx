@@ -11,6 +11,9 @@ import {
 } from 'recharts';
 import { Lightbulb, TrendingUp, ShieldCheck, ArrowUp, ArrowDown } from 'lucide-react';
 import type { ShapExplanation as ShapExplanationType } from '../types';
+import ShapWaterfallChart from './ShapWaterfallChart';
+
+type ChartView = 'waterfall' | 'bar';
 
 interface ShapExplanationProps {
   explanation: ShapExplanationType;
@@ -27,6 +30,7 @@ interface ChartDataItem {
 
 const ShapExplanation = ({ explanation }: ShapExplanationProps) => {
   const [isVisible, setIsVisible] = useState(false);
+  const [chartView, setChartView] = useState<ChartView>('waterfall');
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,15 +64,40 @@ const ShapExplanation = ({ explanation }: ShapExplanationProps) => {
     >
       {/* Header */}
       <div className="bg-gradient-to-r from-violet-500 to-purple-600 p-6 text-white">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
-            <Lightbulb className="w-6 h-6" />
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
+              <Lightbulb className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold">Why This Prediction?</h3>
+              <p className="text-white/80 text-sm mt-0.5">
+                SHAP-based explainability for each health factor
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xl font-semibold">Why This Prediction?</h3>
-            <p className="text-white/80 text-sm mt-0.5">
-              SHAP-based explainability for each health factor
-            </p>
+          {/* Chart view toggle */}
+          <div className="flex items-center gap-1 bg-white/15 rounded-lg p-1">
+            <button
+              onClick={() => setChartView('waterfall')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                chartView === 'waterfall'
+                  ? 'bg-white text-violet-700 shadow-sm'
+                  : 'text-white/80 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              Waterfall
+            </button>
+            <button
+              onClick={() => setChartView('bar')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                chartView === 'bar'
+                  ? 'bg-white text-violet-700 shadow-sm'
+                  : 'text-white/80 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              Bar Chart
+            </button>
           </div>
         </div>
       </div>
@@ -81,54 +110,61 @@ const ShapExplanation = ({ explanation }: ShapExplanationProps) => {
           </p>
         </div>
 
-        {/* SHAP Bar Chart */}
+        {/* Chart: waterfall (default) or bar chart (toggle fallback) */}
         <div>
           <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">
             Factor Contribution Breakdown
           </h4>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={chartData}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
-              >
-                <XAxis
-                  type="number"
-                  domain={[-100, 100]}
-                  tickFormatter={(v: number) => `${Math.abs(v)}%`}
-                  tick={{ fill: '#94A3B8', fontSize: 12 }}
-                  axisLine={{ stroke: '#E2E8F0' }}
-                  tickLine={false}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  tick={{ fill: '#475569', fontSize: 13 }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={115}
-                />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
-                <ReferenceLine x={0} stroke="#CBD5E1" strokeWidth={1} />
-                <Bar dataKey="value" radius={[4, 4, 4, 4]} barSize={24}>
-                  {chartData.map((entry, index) => (
-                    <Cell key={index} fill={entry.fill} fillOpacity={0.85} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex items-center justify-center gap-6 mt-2 text-sm text-slate-500">
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-sm bg-emerald-500" />
-              Protective (lowers risk)
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-sm bg-red-500" />
-              Risk (increases risk)
-            </span>
-          </div>
+
+          {chartView === 'waterfall' ? (
+            <ShapWaterfallChart explanation={explanation} />
+          ) : (
+            <>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={chartData}
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
+                  >
+                    <XAxis
+                      type="number"
+                      domain={[-100, 100]}
+                      tickFormatter={(v: number) => `${Math.abs(v)}%`}
+                      tick={{ fill: '#94A3B8', fontSize: 12 }}
+                      axisLine={{ stroke: '#E2E8F0' }}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tick={{ fill: '#475569', fontSize: 13 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={115}
+                    />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
+                    <ReferenceLine x={0} stroke="#CBD5E1" strokeWidth={1} />
+                    <Bar dataKey="value" radius={[4, 4, 4, 4]} barSize={24}>
+                      {chartData.map((entry, index) => (
+                        <Cell key={index} fill={entry.fill} fillOpacity={0.85} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex items-center justify-center gap-6 mt-2 text-sm text-slate-500">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm bg-emerald-500" />
+                  Protective (lowers risk)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-sm bg-red-500" />
+                  Risk (increases risk)
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Top Factors Cards */}

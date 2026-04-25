@@ -9,28 +9,47 @@ import numpy as np
 from typing import Dict, Any, List, Optional
 
 
-# Feature display names and units for patient-friendly explanations
+# Feature display names and units — covers all 10 features (8 base + 2 engineered)
 FEATURE_DISPLAY = {
-    'Pregnancies': {'name': 'Number of Pregnancies', 'unit': ''},
-    'Glucose': {'name': 'Blood Glucose Level', 'unit': 'mg/dL'},
-    'BloodPressure': {'name': 'Blood Pressure', 'unit': 'mmHg'},
-    'SkinThickness': {'name': 'Skin Thickness', 'unit': 'mm'},
-    'Insulin': {'name': 'Insulin Level', 'unit': 'μU/mL'},
-    'BMI': {'name': 'Body Mass Index (BMI)', 'unit': 'kg/m²'},
-    'DiabetesPedigreeFunction': {'name': 'Family History Score', 'unit': ''},
-    'Age': {'name': 'Age', 'unit': 'years'},
+    'Pregnancies':             {'name': 'Number of Pregnancies', 'unit': ''},
+    'Glucose':                 {'name': 'Blood Glucose Level',   'unit': 'mg/dL'},
+    'BloodPressure':           {'name': 'Blood Pressure',        'unit': 'mmHg'},
+    'SkinThickness':           {'name': 'Skin Thickness',        'unit': 'mm'},
+    'Insulin':                 {'name': 'Insulin Level',         'unit': 'μU/mL'},
+    'BMI':                     {'name': 'Body Mass Index (BMI)', 'unit': 'kg/m²'},
+    'DiabetesPedigreeFunction':{'name': 'Family History Score',  'unit': ''},
+    'Age':                     {'name': 'Age',                   'unit': 'years'},
+    'Glucose_BMI':             {'name': 'Glucose × BMI',         'unit': ''},
+    'Age_BMI':                 {'name': 'Age × BMI',             'unit': ''},
 }
 
-# Map API input field names to model feature names
+# All 10 features in the order the Random Forest sees them after engineering + imputation
+ENGINEERED_FEATURE_ORDER = [
+    'Pregnancies',
+    'Glucose',
+    'BloodPressure',
+    'SkinThickness',
+    'Insulin',
+    'BMI',
+    'DiabetesPedigreeFunction',
+    'Age',
+    'Glucose_BMI',
+    'Age_BMI',
+]
+
+# Interaction features — handled differently in explanation text
+INTERACTION_FEATURES = {'Glucose_BMI', 'Age_BMI'}
+
+# Map API input field names to model feature names (base features only)
 INPUT_TO_FEATURE = {
-    'pregnancies': 'Pregnancies',
-    'glucose': 'Glucose',
-    'blood_pressure': 'BloodPressure',
-    'skin_thickness': 'SkinThickness',
-    'insulin': 'Insulin',
-    'bmi': 'BMI',
+    'pregnancies':       'Pregnancies',
+    'glucose':           'Glucose',
+    'blood_pressure':    'BloodPressure',
+    'skin_thickness':    'SkinThickness',
+    'insulin':           'Insulin',
+    'bmi':               'BMI',
     'diabetes_pedigree': 'DiabetesPedigreeFunction',
-    'age': 'Age',
+    'age':               'Age',
 }
 
 
@@ -56,7 +75,15 @@ class ExplainabilityService:
                 self.init_error = "ML model not initialized"
                 return False
 
-            self.explainer = shap.TreeExplainer(predictor.model)
+            # Extract the underlying RandomForestClassifier from the calibrated pipeline.
+            # Structure: CalibratedClassifierCV → _CalibratedClassifier → Pipeline(named_steps)
+            inner_rf = (
+                predictor.pipeline
+                .calibrated_classifiers_[0]
+                .estimator
+                .named_steps['model']
+            )
+            self.explainer = shap.TreeExplainer(inner_rf)
             self.initialized = True
             return True
 
@@ -73,7 +100,7 @@ class ExplainabilityService:
         Generate SHAP explanation for a single prediction.
 
         Args:
-            scaled_features: 1x8 numpy array (already scaled by StandardScaler)
+            scaled_features: 1×10 numpy array (engineer + imputer applied)
             raw_values: dict of original input values (input_values from prediction)
 
         Returns:
@@ -82,18 +109,15 @@ class ExplainabilityService:
         if not self._ensure_initialized():
             return {'error': self.init_error}
 
-        from services.ml_predictor import FEATURE_ORDER
-
         shap_values = self.explainer.shap_values(scaled_features)
 
-        # SHAP output format depends on version:
-        # - Older: list of [class_0_array, class_1_array], each (n_samples, n_features)
-        # - Newer: ndarray of shape (n_samples, n_features, n_classes)
-        # We want class 1 (diabetes risk) contributions
+        # SHAP output format varies by version:
+        # - Older: list [class_0_array, class_1_array], each (n_samples, n_features)
+        # - Newer: ndarray (n_samples, n_features, n_classes)
+        # We want class 1 (diabetes risk) contributions.
         shap_arr = np.array(shap_values)
         if shap_arr.ndim == 3:
-            # Shape: (n_samples, n_features, n_classes)
-            contributions = shap_arr[0, :, 1]  # (8,) for class 1
+            contributions = shap_arr[0, :, 1]
         elif isinstance(shap_values, list) and len(shap_values) == 2:
             contributions = np.array(shap_values[1])[0]
         else:
@@ -105,57 +129,51 @@ class ExplainabilityService:
         else:
             base_value = float(expected)
 
-        # Build the reverse mapping from feature name to input field name
         feature_to_input = {v: k for k, v in INPUT_TO_FEATURE.items()}
 
-        # Compute total absolute contribution for percentage calculation
         total_abs = float(np.sum(np.abs(contributions)))
         if total_abs == 0:
-            total_abs = 1.0  # prevent division by zero
+            total_abs = 1.0
 
-        # Build feature contribution list
         feature_contributions: List[Dict[str, Any]] = []
-        for i, feature_name in enumerate(FEATURE_ORDER):
+        for i, feature_name in enumerate(ENGINEERED_FEATURE_ORDER):
             shap_val = float(contributions[i])
             abs_pct = abs(shap_val) / total_abs * 100
             direction = 'risk' if shap_val > 0 else 'protective'
 
             display = FEATURE_DISPLAY.get(feature_name, {'name': feature_name, 'unit': ''})
-            input_key = feature_to_input.get(feature_name, feature_name.lower())
-            raw_val = raw_values.get(input_key, 0)
+            input_key = feature_to_input.get(feature_name, '')
+            raw_val = raw_values.get(input_key, 0) if input_key else None
 
-            # Generate plain English explanation
             explanation = self._generate_explanation(
-                display['name'], raw_val, display['unit'], direction, round(abs_pct, 1)
+                feature_name, display['name'], raw_val, display['unit'],
+                direction, round(abs_pct, 1)
             )
 
             feature_contributions.append({
-                'feature': feature_name,
-                'display_name': display['name'],
-                'shap_value': round(shap_val, 4),
+                'feature':          feature_name,
+                'display_name':     display['name'],
+                'shap_value':       round(shap_val, 4),
                 'contribution_pct': round(abs_pct, 1),
-                'direction': direction,
-                'raw_value': raw_val,
-                'unit': display['unit'],
-                'explanation': explanation,
+                'direction':        direction,
+                'raw_value':        raw_val if raw_val is not None else 0,
+                'unit':             display['unit'],
+                'explanation':      explanation,
             })
 
-        # Sort by absolute contribution (highest impact first)
         feature_contributions.sort(key=lambda x: abs(x['shap_value']), reverse=True)
 
-        # Separate risk and protective factors
-        top_risk = [f for f in feature_contributions if f['direction'] == 'risk'][:3]
+        top_risk       = [f for f in feature_contributions if f['direction'] == 'risk'][:3]
         top_protective = [f for f in feature_contributions if f['direction'] == 'protective'][:3]
 
-        # Generate overall plain English summary
         summary = self._generate_summary(top_risk, top_protective)
 
         return {
-            'base_value': round(base_value, 4),
-            'feature_contributions': feature_contributions,
-            'top_risk_factors': top_risk,
+            'base_value':             round(base_value, 4),
+            'feature_contributions':  feature_contributions,
+            'top_risk_factors':       top_risk,
             'top_protective_factors': top_protective,
-            'plain_english_summary': summary,
+            'plain_english_summary':  summary,
         }
 
     def compute_confidence_interval(
@@ -175,48 +193,63 @@ class ExplainabilityService:
         if not predictor.initialized:
             return {'error': 'Model not initialized'}
 
+        inner_rf = (
+            predictor.pipeline
+            .calibrated_classifiers_[0]
+            .estimator
+            .named_steps['model']
+        )
+
         tree_predictions = []
-        for tree in predictor.model.estimators_:
+        for tree in inner_rf.estimators_:
             tree_pred = tree.predict_proba(scaled_features)[0][1]
             tree_predictions.append(tree_pred)
 
         tree_predictions = np.array(tree_predictions)
         mean_pred = float(np.mean(tree_predictions))
-        std_pred = float(np.std(tree_predictions))
+        std_pred  = float(np.std(tree_predictions))
 
-        # z=1.96 for 95% CI (hardcoded to avoid scipy dependency)
-        z = 1.96
+        z = 1.96  # 95% CI
         ci_lower = max(0.0, mean_pred - z * std_pred)
         ci_upper = min(1.0, mean_pred + z * std_pred)
 
         return {
-            'mean': round(mean_pred, 4),
-            'std': round(std_pred, 4),
-            'ci_lower': round(ci_lower, 4),
-            'ci_upper': round(ci_upper, 4),
-            'ci_lower_pct': round(ci_lower * 100, 1),
-            'ci_upper_pct': round(ci_upper * 100, 1),
+            'mean':             round(mean_pred, 4),
+            'std':              round(std_pred, 4),
+            'ci_lower':         round(ci_lower, 4),
+            'ci_upper':         round(ci_upper, 4),
+            'ci_lower_pct':     round(ci_lower * 100, 1),
+            'ci_upper_pct':     round(ci_upper * 100, 1),
             'confidence_level': confidence_level,
-            'tree_count': len(predictor.model.estimators_),
+            'tree_count':       len(inner_rf.estimators_),
         }
 
     def _generate_explanation(
-        self, name: str, value: float, unit: str, direction: str, pct: float
+        self,
+        feature_name: str,
+        name: str,
+        value: Optional[float],
+        unit: str,
+        direction: str,
+        pct: float,
     ) -> str:
         """Generate a patient-friendly explanation for one feature."""
-        value_str = f"{value:.0f}" if value == int(value) else f"{value:.1f}"
-        unit_str = f" {unit}" if unit else ""
+        if feature_name in INTERACTION_FEATURES:
+            if direction == 'risk':
+                return f"The {name} interaction increased your risk score by {pct}%"
+            else:
+                return f"The {name} interaction decreased your risk score by {pct}%"
+
+        value_str = ""
+        if value is not None:
+            value_str = f" of {value:.0f}" if value == int(value) else f" of {value:.1f}"
+            if unit:
+                value_str += f" {unit}"
 
         if direction == 'risk':
-            return (
-                f"Your {name} of {value_str}{unit_str} increased "
-                f"your risk score by {pct}%"
-            )
+            return f"Your {name}{value_str} increased your risk score by {pct}%"
         else:
-            return (
-                f"Your {name} of {value_str}{unit_str} decreased "
-                f"your risk score by {pct}%"
-            )
+            return f"Your {name}{value_str} decreased your risk score by {pct}%"
 
     def _generate_summary(
         self, risk_factors: List[Dict], protective_factors: List[Dict]
@@ -230,9 +263,7 @@ class ExplainabilityService:
                 parts.append(f"The main factor increasing your risk is your {names[0]}.")
             else:
                 joined = ", ".join(names[:-1]) + f" and {names[-1]}"
-                parts.append(
-                    f"The main factors increasing your risk are your {joined}."
-                )
+                parts.append(f"The main factors increasing your risk are your {joined}.")
 
         if protective_factors:
             names = [f['display_name'] for f in protective_factors]
