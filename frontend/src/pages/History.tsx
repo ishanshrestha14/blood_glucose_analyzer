@@ -21,6 +21,7 @@ import {
   FileDown,
   Filter,
   BarChart3,
+  TrendingUp,
   Inbox,
   Sparkles,
 } from 'lucide-react';
@@ -322,7 +323,7 @@ const History = () => {
               </>
             ) : (
               <div className="h-64 flex flex-col items-center justify-center">
-                <BarChart3 className="w-10 h-10 text-slate-300 mb-3" />
+                <TrendingUp className="w-10 h-10 text-slate-300 mb-3" />
                 <p className="font-semibold text-slate-600">No glucose data</p>
                 <p className="text-sm text-slate-400 mt-1">Analyses with glucose values will appear here.</p>
               </div>
