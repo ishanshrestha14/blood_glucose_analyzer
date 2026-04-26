@@ -16,6 +16,7 @@ import type {
   SaveAnalysisRequest,
   SaveAnalysisResponse,
   TrendResponse,
+  TrendInsight,
 } from '../types';
 
 // ============================================
@@ -241,8 +242,9 @@ export async function deleteAnalysis(id: string): Promise<ApiResponse<{ success:
   }
 }
 
-export async function getTrends(params?: {
-  days?: number;
+export async function getTrends(params: {
+  start_date: string;
+  end_date: string;
   test_type?: string;
 }): Promise<ApiResponse<TrendResponse>> {
   try {
@@ -250,6 +252,22 @@ export async function getTrends(params?: {
     return { success: true, data: response.data };
   } catch (error) {
     return handleApiError<TrendResponse>(error);
+  }
+}
+
+export async function getInsight(params: {
+  start_date: string;
+  end_date: string;
+  test_type?: string;
+}): Promise<{ success: boolean; insight: TrendInsight | null }> {
+  try {
+    const response = await apiClient.get<{ success: boolean; insight: TrendInsight | null }>(
+      '/api/trends/insight',
+      { params }
+    );
+    return response.data;
+  } catch (error) {
+    return { success: false, insight: null };
   }
 }
 

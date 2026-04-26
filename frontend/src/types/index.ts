@@ -435,3 +435,14 @@ export interface SaveAnalysisResponse {
   id: string;
   created_at: string;
 }
+
+export interface TrendInsight {
+  sentence: string;
+  first_value: number;
+  last_value: number;
+  delta: number;
+  average: number;
+  count: number;
+  direction: 'up' | 'down' | 'stable';
+  most_recent_risk: string | null;
+}
