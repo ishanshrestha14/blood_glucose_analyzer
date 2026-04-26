@@ -90,7 +90,7 @@ const FileUpload = ({ onFileSelect, isLoading }: FileUploadProps) => {
     <div className="w-full">
       {/* Drop Zone */}
       <div
-        className={`relative border-2 border-dashed rounded-2xl p-10 text-center transition-all duration-300 ${
+        className={`relative border-2 border-dashed rounded-2xl p-6 sm:p-10 text-center transition-all duration-300 ${
           dragActive
             ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 scale-[1.01] shadow-lg'
             : error
