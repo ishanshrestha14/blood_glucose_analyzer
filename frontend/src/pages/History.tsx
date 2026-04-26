@@ -138,12 +138,15 @@ const History = () => {
 
   const handleDelete = useCallback(async (id: string) => {
     setDeletingId(id);
-    const res = await deleteAnalysis(id);
-    if (res.success) {
-      fetchHistory();
-      fetchTrendsAndInsight();
+    try {
+      const res = await deleteAnalysis(id);
+      if (res.success) {
+        fetchHistory();
+        fetchTrendsAndInsight();
+      }
+    } finally {
+      setDeletingId(null);
     }
-    setDeletingId(null);
   }, [fetchHistory, fetchTrendsAndInsight]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
