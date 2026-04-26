@@ -357,9 +357,20 @@ const History = () => {
 
           {/* Table body */}
           {loading ? (
-            <div className="p-12 flex flex-col items-center justify-center">
-              <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-slate-500 mt-3">Loading history...</p>
+            <div className="divide-y divide-slate-100">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="p-4 flex items-center gap-4">
+                  <div className="skeleton w-9 h-9 rounded-lg flex-shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="skeleton h-4 w-32 rounded" />
+                    <div className="skeleton h-3 w-48 rounded" />
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <div className="skeleton w-8 h-8 rounded-lg" />
+                    <div className="skeleton w-8 h-8 rounded-lg" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : analyses.length === 0 ? (
             <div className="p-12 flex flex-col items-center justify-center">
