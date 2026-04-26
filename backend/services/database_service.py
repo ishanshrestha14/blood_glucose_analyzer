@@ -22,6 +22,22 @@ DB_PATH = os.path.join(DATA_DIR, 'analyzer.db')
 class DatabaseService:
     """SQLite-backed storage for analysis history."""
 
+    _TEST_TYPE_LABELS: Dict[str, str] = {
+        'fasting': 'FBS',
+        'hba1c': 'HbA1c',
+        'ppbs': 'PPBS',
+        'rbs': 'RBS',
+        'ogtt': 'OGTT',
+    }
+
+    _TEST_TYPE_UNITS: Dict[str, str] = {
+        'hba1c':   '%',
+        'fasting': 'mg/dL',
+        'ppbs':    'mg/dL',
+        'rbs':     'mg/dL',
+        'ogtt':    'mg/dL',
+    }
+
     def __init__(self):
         os.makedirs(DATA_DIR, exist_ok=True)
         self.db_path = DB_PATH
@@ -192,14 +208,6 @@ class DatabaseService:
         finally:
             conn.close()
 
-    _TEST_TYPE_LABELS: Dict[str, str] = {
-        'fasting': 'FBS',
-        'hba1c': 'HbA1c',
-        'ppbs': 'PPBS',
-        'rbs': 'RBS',
-        'ogtt': 'OGTT',
-    }
-
     def get_trend_data(
         self,
         test_type: Optional[str] = None,
@@ -254,12 +262,14 @@ class DatabaseService:
     def get_trend_insight(
         self,
         test_type: Optional[str] = None,
+        days: int = 30,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Compute a plain-English insight sentence for the selected date window."""
         trend = self.get_trend_data(
             test_type=test_type,
+            days=days,
             start_date=start_date,
             end_date=end_date,
         )
@@ -279,9 +289,10 @@ class DatabaseService:
         else:
             direction = 'down'
 
-        most_recent_risk = self._get_most_recent_risk(start_date, end_date)
+        most_recent_risk = self._get_most_recent_risk(start_date, end_date, days=days)
 
         label = self._TEST_TYPE_LABELS.get(test_type or '', 'glucose')
+        unit = self._TEST_TYPE_UNITS.get(test_type or '', 'mg/dL')
         direction_words = {'up': 'rose', 'down': 'fell', 'stable': 'stayed stable'}
         direction_word = direction_words[direction]
 
@@ -289,7 +300,7 @@ class DatabaseService:
             sentence = f"Your {label} stayed stable over the selected period"
         else:
             sentence = (
-                f"Your {label} {direction_word} by {abs(delta):.0f} mg/dL"
+                f"Your {label} {direction_word} by {abs(delta):.0f} {unit}"
                 f" over the selected period"
             )
         if most_recent_risk:
@@ -314,6 +325,7 @@ class DatabaseService:
         self,
         start_date: Optional[str],
         end_date: Optional[str],
+        days: int = 30,
     ) -> Optional[str]:
         """Return the most recent non-null risk_category in the date window."""
         conn = self._get_connection()
@@ -323,6 +335,9 @@ class DatabaseService:
             if start_date and end_date:
                 where_clauses.append("DATE(created_at) BETWEEN ? AND ?")
                 params.extend([start_date, end_date])
+            elif days > 0:
+                where_clauses.append("created_at >= datetime('now', ?)")
+                params.append(f'-{days} days')
             where = "WHERE " + " AND ".join(where_clauses)
             row = conn.execute(
                 f"SELECT risk_category FROM analyses {where} ORDER BY created_at DESC LIMIT 1",
