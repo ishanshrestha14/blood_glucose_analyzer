@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Sparkles, AlertCircle, X, Scan, FlaskConical, Shield } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Sparkles, AlertCircle, X, Scan, FlaskConical, Shield, RotateCcw } from 'lucide-react';
 import FileUpload from '../components/FileUpload';
 import ManualInputForm from '../components/ManualInputForm';
 import RiskAssessmentForm from '../components/RiskAssessmentForm';
@@ -58,6 +58,7 @@ const Analyze = () => {
   const [error, setError] = useState<string | null>(null);
   const [ocrFields, setOcrFields] = useState<Record<string, ExtractedField> | null>(null);
   const [baseOcrResult, setBaseOcrResult] = useState<AnalyzeResponse | null>(null);
+  const lastActionRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     getSupportedTests();
@@ -71,6 +72,7 @@ const Analyze = () => {
   }, [mode]);
 
   const handleFileAnalysis = async (file: File) => {
+    lastActionRef.current = () => handleFileAnalysis(file);
     setIsLoading(true);
     setError(null);
     setResult(null);
@@ -113,7 +115,7 @@ const Analyze = () => {
         const [testType, { value, unit }] = entries[i];
         return {
           detected: {
-            test_type: testType,
+            test_type: testType as TestType,
             value,
             unit,
             confidence: ocrFields?.[testType]?.confidence ?? 1.0,
@@ -154,6 +156,7 @@ const Analyze = () => {
   };
 
   const handleManualAnalysis = async (input: ManualInputRequest) => {
+    lastActionRef.current = () => handleManualAnalysis(input);
     setIsLoading(true);
     setError(null);
     setResult(null);
@@ -170,6 +173,7 @@ const Analyze = () => {
   };
 
   const handleRiskPrediction = async (input: RiskPredictionInput) => {
+    lastActionRef.current = () => handleRiskPrediction(input);
     setIsLoading(true);
     setError(null);
     setResult(null);
@@ -283,7 +287,7 @@ const Analyze = () => {
 
         {/* Loading State */}
         {isLoading && (
-          <div className="card-elevated p-10 mb-8 animate-fade-in-up" role="status" aria-live="polite">
+          <div className="card-elevated p-6 sm:p-10 mb-8 animate-fade-in-up" role="status" aria-live="polite">
             <div className="flex flex-col items-center justify-center">
               <div className="relative mb-6">
                 <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${currentTab.gradient} flex items-center justify-center shadow-lg`}>
@@ -321,13 +325,27 @@ const Analyze = () => {
             </div>
             <div className="p-5 bg-gradient-to-b from-rose-50 to-white">
               <p className="text-slate-700 mb-4">{error}</p>
-              <button
-                onClick={() => setError(null)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-rose-100 text-rose-700 font-medium rounded-lg hover:bg-rose-200 transition-colors"
-              >
-                <X className="w-4 h-4" />
-                Dismiss
-              </button>
+              <div className="flex items-center gap-2">
+                {lastActionRef.current && (
+                  <button
+                    onClick={() => {
+                      lastActionRef.current?.();
+                      setError(null);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-100 text-indigo-700 font-medium rounded-lg hover:bg-indigo-200 transition-colors"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Try again
+                  </button>
+                )}
+                <button
+                  onClick={() => setError(null)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-rose-100 text-rose-700 font-medium rounded-lg hover:bg-rose-200 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                  Dismiss
+                </button>
+              </div>
             </div>
           </div>
         )}
