@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LineChart,
   Line,
@@ -22,10 +22,11 @@ import {
   Filter,
   BarChart3,
   Inbox,
+  Sparkles,
 } from 'lucide-react';
-import { getHistory, deleteAnalysis, getTrends } from '../services/api';
+import { getHistory, deleteAnalysis, getTrends, getInsight } from '../services/api';
 import { API_BASE_URL } from '../services/api';
-import type { AnalysisHistoryItem, TrendDataPoint } from '../types';
+import type { AnalysisHistoryItem, TrendDataPoint, TrendInsight } from '../types';
 
 const TYPE_CONFIG: Record<
   string,
@@ -76,9 +77,22 @@ const History = () => {
   const [page, setPage] = useState(0);
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [trendData, setTrendData] = useState<TrendDataPoint[]>([]);
-  const [trendDays, setTrendDays] = useState(30);
+
+  // Default date range: today − 30 days to today (YYYY-MM-DD strings)
+  const today = new Date().toISOString().slice(0, 10);
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const [dateRange, setDateRange] = useState<{ start: string; end: string }>({
+    start: thirtyDaysAgo,
+    end: today,
+  });
+  const [activePreset, setActivePreset] = useState<7 | 30 | 90 | null>(30);
+  const [insight, setInsight] = useState<TrendInsight | null>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const fetchIdRef = useRef(0);
 
   const fetchHistory = useCallback(async () => {
     setLoading(true);
@@ -94,27 +108,41 @@ const History = () => {
     setLoading(false);
   }, [page, typeFilter]);
 
-  const fetchTrends = useCallback(async () => {
-    const res = await getTrends({ days: trendDays });
-    if (res.success && res.data) {
-      setTrendData(res.data.data_points);
+  const dateRangeInvalid = dateRange.start > dateRange.end;
+
+  const fetchTrendsAndInsight = useCallback(async () => {
+    const fetchId = ++fetchIdRef.current;
+    setInsightLoading(true);
+
+    const [trendsRes, insightRes] = await Promise.all([
+      getTrends({ start_date: dateRange.start, end_date: dateRange.end }),
+      getInsight({ start_date: dateRange.start, end_date: dateRange.end }),
+    ]);
+
+    if (fetchId !== fetchIdRef.current) return; // stale response, discard
+
+    if (trendsRes.success && trendsRes.data) {
+      setTrendData(trendsRes.data.data_points);
     }
-  }, [trendDays]);
+    setInsight(insightRes.insight);
+    setInsightLoading(false);
+  }, [dateRange]);
 
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
 
   useEffect(() => {
-    fetchTrends();
-  }, [fetchTrends]);
+    if (dateRangeInvalid) return;
+    fetchTrendsAndInsight();
+  }, [fetchTrendsAndInsight, dateRangeInvalid]);
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
     const res = await deleteAnalysis(id);
     if (res.success) {
       fetchHistory();
-      fetchTrends();
+      fetchTrendsAndInsight();
     }
     setDeletingId(null);
   };
@@ -155,7 +183,7 @@ const History = () => {
         {chartData.length > 0 && (
           <div className="card-elevated overflow-hidden">
             <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-5 text-white">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
                     <BarChart3 className="w-5 h-5" />
@@ -165,13 +193,22 @@ const History = () => {
                     <p className="text-white/70 text-sm">{chartData.length} data points</p>
                   </div>
                 </div>
-                <div className="flex gap-1.5">
-                  {[7, 30, 90].map((d) => (
+                {/* Date range controls */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Quick-select pills */}
+                  {([7, 30, 90] as const).map((d) => (
                     <button
                       key={d}
-                      onClick={() => setTrendDays(d)}
+                      onClick={() => {
+                        const end = new Date().toISOString().slice(0, 10);
+                        const start = new Date(Date.now() - d * 24 * 60 * 60 * 1000)
+                          .toISOString()
+                          .slice(0, 10);
+                        setDateRange({ start, end });
+                        setActivePreset(d);
+                      }}
                       className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-                        trendDays === d
+                        activePreset === d
                           ? 'bg-white text-indigo-700'
                           : 'bg-white/10 text-white/80 hover:bg-white/20'
                       }`}
@@ -179,6 +216,32 @@ const History = () => {
                       {d}d
                     </button>
                   ))}
+                  {/* Date inputs */}
+                  <input
+                    type="date"
+                    value={dateRange.start}
+                    max={dateRange.end}
+                    onChange={(e) => {
+                      setDateRange((r) => ({ ...r, start: e.target.value }));
+                      setActivePreset(null);
+                    }}
+                    className="bg-white/10 text-white text-sm rounded-lg px-2 py-1 border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
+                  />
+                  <span className="text-white/60 text-sm">to</span>
+                  <input
+                    type="date"
+                    value={dateRange.end}
+                    min={dateRange.start}
+                    max={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => {
+                      setDateRange((r) => ({ ...r, end: e.target.value }));
+                      setActivePreset(null);
+                    }}
+                    className="bg-white/10 text-white text-sm rounded-lg px-2 py-1 border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
+                  />
+                  {dateRangeInvalid && (
+                    <span className="text-rose-300 text-xs">Start must be before end</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -228,6 +291,15 @@ const History = () => {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
+              {/* Insight banner */}
+              {insightLoading ? (
+                <div className="mt-4 h-10 bg-indigo-50 rounded-xl animate-pulse" />
+              ) : insight && insight.count >= 2 ? (
+                <div className="mt-4 flex items-start gap-3 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3">
+                  <Sparkles className="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-indigo-800">{insight.sentence}</p>
+                </div>
+              ) : null}
               <div className="flex items-center justify-center gap-6 mt-3 text-xs text-slate-500">
                 <span className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-sm bg-emerald-500/20 border border-emerald-300" />
