@@ -24,8 +24,7 @@ import {
   Inbox,
   Sparkles,
 } from 'lucide-react';
-import { getHistory, deleteAnalysis, getTrends, getInsight } from '../services/api';
-import { API_BASE_URL } from '../services/api';
+import { getHistory, deleteAnalysis, getTrends, getInsight, API_BASE_URL } from '../services/api';
 import type { AnalysisHistoryItem, TrendDataPoint, TrendInsight } from '../types';
 
 const TYPE_CONFIG: Record<
@@ -78,12 +77,10 @@ const History = () => {
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [trendData, setTrendData] = useState<TrendDataPoint[]>([]);
 
-  // Default date range: today − 30 days to today (YYYY-MM-DD strings)
-  const today = new Date().toISOString().slice(0, 10);
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const [dateRange, setDateRange] = useState<{ start: string; end: string }>({
-    start: thirtyDaysAgo,
-    end: today,
+  const [dateRange, setDateRange] = useState<{ start: string; end: string }>(() => {
+    const end = new Date().toISOString().slice(0, 10);
+    const start = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    return { start, end };
   });
   const [activePreset, setActivePreset] = useState<7 | 30 | 90 | null>(30);
   const [insight, setInsight] = useState<TrendInsight | null>(null);
@@ -96,36 +93,38 @@ const History = () => {
 
   const fetchHistory = useCallback(async () => {
     setLoading(true);
-    const res = await getHistory({
-      limit: PAGE_SIZE,
-      offset: page * PAGE_SIZE,
-      type: typeFilter || undefined,
-    });
-    if (res.success && res.data) {
-      setAnalyses(res.data.analyses);
-      setTotal(res.data.total);
+    try {
+      const res = await getHistory({
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
+        type: typeFilter || undefined,
+      });
+      if (res.success && res.data) {
+        setAnalyses(res.data.analyses);
+        setTotal(res.data.total);
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [page, typeFilter]);
-
-  const dateRangeInvalid = dateRange.start > dateRange.end;
 
   const fetchTrendsAndInsight = useCallback(async () => {
     const fetchId = ++fetchIdRef.current;
     setInsightLoading(true);
-
-    const [trendsRes, insightRes] = await Promise.all([
-      getTrends({ start_date: dateRange.start, end_date: dateRange.end }),
-      getInsight({ start_date: dateRange.start, end_date: dateRange.end }),
-    ]);
-
-    if (fetchId !== fetchIdRef.current) return; // stale response, discard
-
-    if (trendsRes.success && trendsRes.data) {
-      setTrendData(trendsRes.data.data_points);
+    setInsight(null);
+    try {
+      const [trendsRes, insightRes] = await Promise.all([
+        getTrends({ start_date: dateRange.start, end_date: dateRange.end }),
+        getInsight({ start_date: dateRange.start, end_date: dateRange.end }),
+      ]);
+      if (fetchId !== fetchIdRef.current) return;
+      if (trendsRes.success && trendsRes.data) {
+        setTrendData(trendsRes.data.data_points);
+      }
+      setInsight(insightRes.insight);
+    } finally {
+      if (fetchId === fetchIdRef.current) setInsightLoading(false);
     }
-    setInsight(insightRes.insight);
-    setInsightLoading(false);
   }, [dateRange]);
 
   useEffect(() => {
@@ -133,11 +132,11 @@ const History = () => {
   }, [fetchHistory]);
 
   useEffect(() => {
-    if (dateRangeInvalid) return;
+    if (dateRange.start > dateRange.end) return;
     fetchTrendsAndInsight();
-  }, [fetchTrendsAndInsight, dateRangeInvalid]);
+  }, [fetchTrendsAndInsight]);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     setDeletingId(id);
     const res = await deleteAnalysis(id);
     if (res.success) {
@@ -145,7 +144,7 @@ const History = () => {
       fetchTrendsAndInsight();
     }
     setDeletingId(null);
-  };
+  }, [fetchHistory, fetchTrendsAndInsight]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
@@ -219,6 +218,7 @@ const History = () => {
                   {/* Date inputs */}
                   <input
                     type="date"
+                    aria-label="Start date"
                     value={dateRange.start}
                     max={dateRange.end}
                     onChange={(e) => {
@@ -230,6 +230,7 @@ const History = () => {
                   <span className="text-white/60 text-sm">to</span>
                   <input
                     type="date"
+                    aria-label="End date"
                     value={dateRange.end}
                     min={dateRange.start}
                     max={new Date().toISOString().slice(0, 10)}
@@ -239,7 +240,7 @@ const History = () => {
                     }}
                     className="bg-white/10 text-white text-sm rounded-lg px-2 py-1 border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
                   />
-                  {dateRangeInvalid && (
+                  {dateRange.start > dateRange.end && (
                     <span className="text-rose-300 text-xs">Start must be before end</span>
                   )}
                 </div>
