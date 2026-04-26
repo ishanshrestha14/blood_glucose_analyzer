@@ -1331,13 +1331,21 @@ def get_trends():
     tags:
       - History
     summary: Get trend data for charts
-    description: Returns glucose values over time for trend visualization, optionally filtered by test type and date range.
+    description: Returns glucose values over time. Use start_date/end_date for a custom range, or days for a relative lookback.
     parameters:
       - name: days
         in: query
         type: integer
         default: 30
-        description: Number of days to look back
+        description: Number of days to look back (ignored when start_date and end_date are provided)
+      - name: start_date
+        in: query
+        type: string
+        description: Start date (YYYY-MM-DD)
+      - name: end_date
+        in: query
+        type: string
+        description: End date (YYYY-MM-DD)
       - name: test_type
         in: query
         type: string
@@ -1355,28 +1363,89 @@ def get_trends():
               type: array
               items:
                 type: object
-                properties:
-                  date:
-                    type: string
-                  value:
-                    type: number
-                  test_type:
-                    type: string
             count:
               type: integer
       500:
         description: Server error
     """
     try:
-        days = request.args.get('days', 30, type=int)
-        test_type = request.args.get('test_type', None)
+        days       = request.args.get('days', 30, type=int)
+        start_date = request.args.get('start_date', None)
+        end_date   = request.args.get('end_date', None)
+        test_type  = request.args.get('test_type', None)
 
         db = get_database_service()
-        result = db.get_trend_data(test_type=test_type, days=days)
+        result = db.get_trend_data(
+            test_type=test_type,
+            days=days,
+            start_date=start_date,
+            end_date=end_date,
+        )
         return jsonify(result)
 
     except Exception as e:
         app.logger.error(f"Get trends error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/trends/insight', methods=['GET'])
+def get_trend_insight():
+    """Get insight sentence for the selected trend window
+    ---
+    tags:
+      - History
+    summary: Generate plain-English insight for glucose trend
+    description: Returns a sentence describing glucose trajectory and most recent risk category for the selected period.
+    parameters:
+      - name: days
+        in: query
+        type: integer
+        default: 30
+        description: Number of days to look back (ignored when start_date and end_date are provided)
+      - name: start_date
+        in: query
+        type: string
+        description: Start date (YYYY-MM-DD)
+      - name: end_date
+        in: query
+        type: string
+        description: End date (YYYY-MM-DD)
+      - name: test_type
+        in: query
+        type: string
+        enum: [fasting, hba1c, ppbs, rbs, ogtt]
+    responses:
+      200:
+        description: Insight result
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            insight:
+              type: object
+              nullable: true
+              description: null when fewer than 2 data points exist
+      500:
+        description: Server error
+    """
+    try:
+        days       = request.args.get('days', 30, type=int)
+        start_date = request.args.get('start_date', None)
+        end_date   = request.args.get('end_date', None)
+        test_type  = request.args.get('test_type', None)
+
+        db = get_database_service()
+        result = db.get_trend_insight(
+            test_type=test_type,
+            days=days,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        return jsonify(result)
+
+    except Exception as e:
+        app.logger.error(f"Get trend insight error: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
