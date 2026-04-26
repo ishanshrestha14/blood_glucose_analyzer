@@ -1369,10 +1369,10 @@ def get_trends():
         description: Server error
     """
     try:
-        days       = request.args.get('days', 30, type=int)
+        days = request.args.get('days', 30, type=int)
         start_date = request.args.get('start_date', None)
-        end_date   = request.args.get('end_date', None)
-        test_type  = request.args.get('test_type', None)
+        end_date = request.args.get('end_date', None)
+        test_type = request.args.get('test_type', None)
 
         db = get_database_service()
         result = db.get_trend_data(
@@ -1413,6 +1413,7 @@ def get_trend_insight():
       - name: test_type
         in: query
         type: string
+        description: Filter by test type
         enum: [fasting, hba1c, ppbs, rbs, ogtt]
     responses:
       200:
@@ -1424,16 +1425,33 @@ def get_trend_insight():
               type: boolean
             insight:
               type: object
-              nullable: true
-              description: null when fewer than 2 data points exist
+              description: null when fewer than 2 data points exist; otherwise contains sentence and stats
+              properties:
+                sentence:
+                  type: string
+                first_value:
+                  type: number
+                last_value:
+                  type: number
+                delta:
+                  type: number
+                average:
+                  type: number
+                count:
+                  type: integer
+                direction:
+                  type: string
+                  enum: [up, down, stable]
+                most_recent_risk:
+                  type: string
       500:
         description: Server error
     """
     try:
-        days       = request.args.get('days', 30, type=int)
+        days = request.args.get('days', 30, type=int)
         start_date = request.args.get('start_date', None)
-        end_date   = request.args.get('end_date', None)
-        test_type  = request.args.get('test_type', None)
+        end_date = request.args.get('end_date', None)
+        test_type = request.args.get('test_type', None)
 
         db = get_database_service()
         result = db.get_trend_insight(
