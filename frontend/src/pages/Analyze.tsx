@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Sparkles, AlertCircle, X, Scan, FlaskConical, Shield, RotateCcw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import FileUpload from '../components/FileUpload';
 import ManualInputForm from '../components/ManualInputForm';
 import RiskAssessmentForm from '../components/RiskAssessmentForm';
@@ -18,40 +19,8 @@ import type {
 } from '../types';
 import { TEST_TYPE_UNITS } from '../types';
 
-const TABS: { id: AnalysisMode; label: string; shortLabel: string; icon: React.ReactNode; description: string; gradient: string }[] = [
-  {
-    id: 'upload',
-    label: 'Upload Report',
-    shortLabel: 'Upload',
-    icon: <Scan className="w-5 h-5" />,
-    description: 'Upload a lab report image and let AI extract glucose values automatically',
-    gradient: 'from-blue-500 to-indigo-600',
-  },
-  {
-    id: 'manual',
-    label: 'Manual Input',
-    shortLabel: 'Manual',
-    icon: <FlaskConical className="w-5 h-5" />,
-    description: 'Enter your glucose values manually for instant ADA-based classification',
-    gradient: 'from-emerald-500 to-teal-600',
-  },
-  {
-    id: 'risk',
-    label: 'Risk Assessment',
-    shortLabel: 'Risk',
-    icon: <Shield className="w-5 h-5" />,
-    description: 'Predict your diabetes risk using our machine learning model',
-    gradient: 'from-violet-500 to-purple-600',
-  },
-];
-
-const LOADING_MESSAGES: Record<AnalysisMode, { title: string; subtitle: string }> = {
-  upload: { title: 'Analyzing Report', subtitle: 'Extracting glucose values with OCR...' },
-  manual: { title: 'Classifying Value', subtitle: 'Applying ADA guidelines...' },
-  risk: { title: 'Calculating Risk', subtitle: 'Processing health factors...' },
-};
-
 const Analyze = () => {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<AnalysisMode>('upload');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ResultType | null>(null);
@@ -59,6 +28,39 @@ const Analyze = () => {
   const [ocrFields, setOcrFields] = useState<Record<string, ExtractedField> | null>(null);
   const [baseOcrResult, setBaseOcrResult] = useState<AnalyzeResponse | null>(null);
   const lastActionRef = useRef<(() => void) | null>(null);
+
+  const TABS: { id: AnalysisMode; label: string; shortLabel: string; icon: React.ReactNode; description: string; gradient: string }[] = [
+    {
+      id: 'upload',
+      label: t('analyze.tabs.upload.label'),
+      shortLabel: t('analyze.tabs.upload.shortLabel'),
+      icon: <Scan className="w-5 h-5" />,
+      description: t('analyze.tabs.upload.description'),
+      gradient: 'from-blue-500 to-indigo-600',
+    },
+    {
+      id: 'manual',
+      label: t('analyze.tabs.manual.label'),
+      shortLabel: t('analyze.tabs.manual.shortLabel'),
+      icon: <FlaskConical className="w-5 h-5" />,
+      description: t('analyze.tabs.manual.description'),
+      gradient: 'from-emerald-500 to-teal-600',
+    },
+    {
+      id: 'risk',
+      label: t('analyze.tabs.risk.label'),
+      shortLabel: t('analyze.tabs.risk.shortLabel'),
+      icon: <Shield className="w-5 h-5" />,
+      description: t('analyze.tabs.risk.description'),
+      gradient: 'from-violet-500 to-purple-600',
+    },
+  ];
+
+  const LOADING_MESSAGES: Record<AnalysisMode, { title: string; subtitle: string }> = {
+    upload: { title: t('analyze.loading.upload.title'), subtitle: t('analyze.loading.upload.subtitle') },
+    manual: { title: t('analyze.loading.manual.title'), subtitle: t('analyze.loading.manual.subtitle') },
+    risk:   { title: t('analyze.loading.risk.title'),   subtitle: t('analyze.loading.risk.subtitle') },
+  };
 
   useEffect(() => {
     getSupportedTests();
@@ -190,7 +192,7 @@ const Analyze = () => {
     setIsLoading(false);
   };
 
-  const currentTab = TABS.find((t) => t.id === mode)!;
+  const currentTab = TABS.find((tab) => tab.id === mode)!;
 
   return (
     <div className="flex-1 min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-white">
@@ -204,13 +206,13 @@ const Analyze = () => {
           <div className="max-w-4xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full mb-4 border border-white/10">
               <Sparkles className="w-4 h-4 text-blue-300" />
-              <span className="text-sm font-medium text-blue-100">AI-Powered Analysis</span>
+              <span className="text-sm font-medium text-blue-100">{t('analyze.hero.badge')}</span>
             </div>
             <h1 className="text-3xl md:text-4xl font-bold mb-3">
-              Glucose Analysis
+              {t('analyze.hero.heading')}
             </h1>
             <p className="text-blue-100/80 text-lg max-w-xl mx-auto">
-              Upload a lab report, enter values manually, or assess your diabetes risk
+              {t('analyze.hero.subtitle')}
             </p>
           </div>
         </div>
@@ -275,7 +277,7 @@ const Analyze = () => {
           )}
         </div>
 
-        {/* OCR Fields Editor — shown after upload analysis when fields were detected */}
+        {/* OCR Fields Editor */}
         {mode === 'upload' && ocrFields && Object.keys(ocrFields).length > 0 && !isLoading && (
           <div className="mb-8 animate-fade-in-up">
             <OcrFieldsEditor
@@ -319,8 +321,8 @@ const Analyze = () => {
                   <AlertCircle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">Analysis Failed</h3>
-                  <p className="text-rose-100 text-sm">Something went wrong</p>
+                  <h3 className="font-semibold">{t('analyze.error.title')}</h3>
+                  <p className="text-rose-100 text-sm">{t('analyze.error.subtitle')}</p>
                 </div>
               </div>
             </div>
@@ -333,7 +335,7 @@ const Analyze = () => {
                     className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-100 text-indigo-700 font-medium rounded-lg hover:bg-indigo-200 transition-colors"
                   >
                     <RotateCcw className="w-4 h-4" />
-                    Try again
+                    {t('analyze.error.tryAgain')}
                   </button>
                 )}
                 <button
@@ -341,7 +343,7 @@ const Analyze = () => {
                   className="inline-flex items-center gap-2 px-4 py-2 bg-rose-100 text-rose-700 font-medium rounded-lg hover:bg-rose-200 transition-colors"
                 >
                   <X className="w-4 h-4" />
-                  Dismiss
+                  {t('analyze.error.dismiss')}
                 </button>
               </div>
             </div>
@@ -355,7 +357,6 @@ const Analyze = () => {
           </div>
         )}
 
-        {/* Disclaimer */}
         <Disclaimer variant="compact" />
       </div>
     </div>

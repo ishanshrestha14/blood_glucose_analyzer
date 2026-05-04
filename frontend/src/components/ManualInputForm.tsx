@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FlaskConical, ChevronDown, Info, Sparkles, CheckCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { ManualInputRequest, TestType } from '../types';
 import { TEST_TYPE_LABELS } from '../types';
 
@@ -8,28 +9,20 @@ interface ManualInputFormProps {
   isLoading?: boolean;
 }
 
-const TEST_PLACEHOLDERS: Record<TestType, string> = {
-  fasting: 'e.g., 95',
-  hba1c: 'e.g., 5.7',
-  ppbs: 'e.g., 140',
-  rbs: 'e.g., 120',
-  ogtt: 'e.g., 155',
-};
-
-const TEST_HINTS: Record<TestType, string> = {
-  fasting: 'Measured after 8+ hours of fasting',
-  hba1c: 'Average blood sugar over 2-3 months',
-  ppbs: 'Measured 2 hours after eating',
-  rbs: 'Measured at any time of day',
-  ogtt: 'Measured during glucose tolerance test',
-};
-
 const TEST_ICONS: Record<TestType, string> = {
   fasting: 'FBS',
   hba1c: 'A1C',
   ppbs: 'PP',
   rbs: 'RBS',
   ogtt: 'GTT',
+};
+
+const TEST_PLACEHOLDERS: Record<TestType, string> = {
+  fasting: 'e.g., 95',
+  hba1c: 'e.g., 5.7',
+  ppbs: 'e.g., 140',
+  rbs: 'e.g., 120',
+  ogtt: 'e.g., 155',
 };
 
 const NORMAL_RANGES: Record<TestType, { range: string; min: number; max: number | null }> = {
@@ -41,6 +34,7 @@ const NORMAL_RANGES: Record<TestType, { range: string; min: number; max: number 
 };
 
 const ManualInputForm = ({ onSubmit, isLoading }: ManualInputFormProps) => {
+  const { t } = useTranslation();
   const [testType, setTestType] = useState<TestType>('fasting');
   const [value, setValue] = useState('');
   const [unit, setUnit] = useState<'mg/dL' | 'mmol/L'>('mg/dL');
@@ -53,17 +47,17 @@ const ManualInputForm = ({ onSubmit, isLoading }: ManualInputFormProps) => {
     const newErrors: { value?: string } = {};
 
     if (!value.trim()) {
-      newErrors.value = 'Please enter a glucose value';
+      newErrors.value = t('manualInput.errors.required');
     } else {
       const numValue = parseFloat(value);
       if (isNaN(numValue)) {
-        newErrors.value = 'Please enter a valid number';
+        newErrors.value = t('manualInput.errors.invalid');
       } else if (numValue <= 0) {
-        newErrors.value = 'Value must be greater than 0';
+        newErrors.value = t('manualInput.errors.nonPositive');
       } else if (isHba1c && numValue > 20) {
-        newErrors.value = 'HbA1c value seems too high (max 20%)';
+        newErrors.value = t('manualInput.errors.hba1cTooHigh');
       } else if (!isHba1c && numValue > 1000) {
-        newErrors.value = 'Glucose value seems too high';
+        newErrors.value = t('manualInput.errors.glucoseTooHigh');
       }
     }
 
@@ -91,7 +85,6 @@ const ManualInputForm = ({ onSubmit, isLoading }: ManualInputFormProps) => {
     }
   };
 
-  // Check if value is in normal range
   const numValue = parseFloat(value);
   const normalRange = NORMAL_RANGES[testType];
   const isInNormalRange =
@@ -104,7 +97,7 @@ const ManualInputForm = ({ onSubmit, isLoading }: ManualInputFormProps) => {
       {/* Test Type Selection */}
       <div>
         <label className="block text-sm font-semibold text-slate-700 mb-3">
-          Select Test Type
+          {t('manualInput.selectTestType')}
         </label>
         <div className="grid grid-cols-5 gap-2 mb-3">
           {(Object.keys(TEST_TYPE_LABELS) as TestType[]).map((type) => (
@@ -140,7 +133,7 @@ const ManualInputForm = ({ onSubmit, isLoading }: ManualInputFormProps) => {
           </div>
           <div>
             <p className="text-sm font-medium text-slate-700">{TEST_TYPE_LABELS[testType]}</p>
-            <p className="text-xs text-slate-500">{TEST_HINTS[testType]}</p>
+            <p className="text-xs text-slate-500">{t(`manualInput.hints.${testType}`)}</p>
           </div>
         </div>
       </div>
@@ -148,7 +141,7 @@ const ManualInputForm = ({ onSubmit, isLoading }: ManualInputFormProps) => {
       {/* Value Input */}
       <div>
         <label className="block text-sm font-semibold text-slate-700 mb-3">
-          Enter Your Value
+          {t('manualInput.enterValue')}
         </label>
         <div className="flex gap-3">
           <div className="flex-1 relative">
@@ -184,7 +177,7 @@ const ManualInputForm = ({ onSubmit, isLoading }: ManualInputFormProps) => {
                     : 'bg-amber-100 text-amber-700'
                 }`}
               >
-                {isInNormalRange ? 'Normal' : 'Elevated'}
+                {isInNormalRange ? t('manualInput.normal') : t('manualInput.elevated')}
               </div>
             )}
           </div>
@@ -222,7 +215,7 @@ const ManualInputForm = ({ onSubmit, isLoading }: ManualInputFormProps) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-emerald-600" />
-              <span className="text-sm font-medium text-emerald-800">Normal Range</span>
+              <span className="text-sm font-medium text-emerald-800">{t('manualInput.normalRange')}</span>
             </div>
             <span className="text-sm font-bold text-emerald-700">{NORMAL_RANGES[testType].range}</span>
           </div>
@@ -253,12 +246,12 @@ const ManualInputForm = ({ onSubmit, isLoading }: ManualInputFormProps) => {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               />
             </svg>
-            Analyzing...
+            {t('manualInput.analyzing')}
           </span>
         ) : (
           <span className="flex items-center justify-center gap-2">
             <Sparkles className="w-5 h-5" />
-            Analyze Value
+            {t('manualInput.analyzeValue')}
           </span>
         )}
       </button>

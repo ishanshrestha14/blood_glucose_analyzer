@@ -1,20 +1,19 @@
 import { Info, Shield, AlertCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface DisclaimerProps {
   variant?: 'default' | 'compact' | 'inline';
   className?: string;
 }
 
-const DEFAULT_TEXT = `This tool is intended for educational and informational purposes only.
-It is not a substitute for professional medical advice, diagnosis, or treatment.
-Always consult with a qualified healthcare provider for medical concerns.`;
-
 const Disclaimer = ({ variant = 'default', className = '' }: DisclaimerProps) => {
+  const { t } = useTranslation();
+
   if (variant === 'inline') {
     return (
       <p className={`text-xs text-slate-500 flex items-start gap-1.5 ${className}`}>
         <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-slate-400" />
-        <span>For educational purposes only. Not a medical diagnosis.</span>
+        <span>{t('common.disclaimer.inlineShort')}</span>
       </p>
     );
   }
@@ -26,9 +25,9 @@ const Disclaimer = ({ variant = 'default', className = '' }: DisclaimerProps) =>
           <AlertCircle className="w-4 h-4 text-amber-600" />
         </div>
         <div>
-          <p className="text-xs font-medium text-amber-800 mb-0.5">Educational Use Only</p>
+          <p className="text-xs font-medium text-amber-800 mb-0.5">{t('common.disclaimer.compactTitle')}</p>
           <p className="text-xs text-amber-700">
-            Consult a healthcare provider for medical advice, diagnosis, or treatment.
+            {t('common.disclaimer.compactBody')}
           </p>
         </div>
       </div>
@@ -40,7 +39,7 @@ const Disclaimer = ({ variant = 'default', className = '' }: DisclaimerProps) =>
       <div className="bg-gradient-to-r from-slate-100 to-slate-50 px-5 py-3 border-b border-slate-200">
         <div className="flex items-center gap-2">
           <Shield className="w-4 h-4 text-slate-500" />
-          <span className="text-sm font-semibold text-slate-700">Medical Disclaimer</span>
+          <span className="text-sm font-semibold text-slate-700">{t('common.disclaimer.title')}</span>
         </div>
       </div>
       <div className="p-5">
@@ -49,17 +48,17 @@ const Disclaimer = ({ variant = 'default', className = '' }: DisclaimerProps) =>
             <Info className="w-5 h-5 text-amber-600" />
           </div>
           <div className="flex-1">
-            <p className="text-sm text-slate-600 leading-relaxed">{DEFAULT_TEXT}</p>
+            <p className="text-sm text-slate-600 leading-relaxed">{t('common.disclaimer.body')}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-full">
                 <AlertCircle className="w-3 h-3" />
-                Educational Only
+                {t('common.disclaimer.educationalOnly')}
               </span>
               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-full">
-                Not Medical Advice
+                {t('common.disclaimer.notMedicalAdvice')}
               </span>
               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-full">
-                Consult Healthcare Provider
+                {t('common.disclaimer.consultProvider')}
               </span>
             </div>
           </div>

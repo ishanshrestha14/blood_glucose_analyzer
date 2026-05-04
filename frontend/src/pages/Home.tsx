@@ -16,11 +16,13 @@ import {
   Zap,
   Heart,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import Disclaimer from '../components/Disclaimer';
 import { getHealthCheck } from '../services/api';
 import type { HealthCheckResponse } from '../types';
 
 const Home = () => {
+  const { t } = useTranslation();
   const [healthStatus, setHealthStatus] = useState<HealthCheckResponse | null>(null);
   const [isCheckingHealth, setIsCheckingHealth] = useState(true);
 
@@ -35,6 +37,14 @@ const Home = () => {
     };
     checkHealth();
   }, []);
+
+  const TESTS = [
+    { name: 'Fasting Blood Sugar (FBS)', range: '70-99 mg/dL', icon: '🌅' },
+    { name: 'Post-Prandial (PPBS)', range: '< 140 mg/dL', icon: '🍽️' },
+    { name: 'Random Blood Sugar (RBS)', range: '< 140 mg/dL', icon: '🕐' },
+    { name: 'OGTT (2-hour)', range: '< 140 mg/dL', icon: '⏱️' },
+    { name: 'HbA1c', range: '4.0-5.6%', icon: '📊' },
+  ];
 
   return (
     <div className="flex-1">
@@ -55,20 +65,19 @@ const Home = () => {
             {/* Badge */}
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-5 py-2.5 rounded-full mb-8 border border-white/10 animate-fade-in-up">
               <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-              <span className="text-sm font-medium text-blue-100">AI-Powered Health Intelligence</span>
+              <span className="text-sm font-medium text-blue-100">{t('home.hero.badge')}</span>
             </div>
 
             {/* Main Heading */}
             <h1 className="text-display-xl md:text-6xl lg:text-7xl mb-6 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-              Understand Your
+              {t('home.hero.heading1')}
               <span className="block bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent">
-                Blood Glucose
+                {t('home.hero.heading2')}
               </span>
             </h1>
 
             <p className="text-xl md:text-2xl text-blue-100/80 mb-10 max-w-2xl mx-auto leading-relaxed animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-              Advanced OCR and machine learning technology to analyze your lab reports
-              and provide personalized health insights.
+              {t('home.hero.subtitle')}
             </p>
 
             {/* CTA Buttons */}
@@ -78,14 +87,14 @@ const Home = () => {
                 className="group inline-flex items-center gap-3 bg-white text-slate-900 font-semibold px-8 py-4 rounded-2xl hover:bg-blue-50 transition-all shadow-2xl shadow-black/20 hover:shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Sparkles className="w-5 h-5 text-blue-600" />
-                Start Analysis
+                {t('home.hero.ctaStart')}
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
               <Link
                 to="/about"
                 className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md text-white font-semibold px-8 py-4 rounded-2xl hover:bg-white/20 transition-all border border-white/20"
               >
-                Learn More
+                {t('home.hero.ctaLearnMore')}
               </Link>
             </div>
 
@@ -94,17 +103,17 @@ const Home = () => {
               {isCheckingHealth ? (
                 <div className="flex items-center gap-3 px-5 py-2.5 bg-white/10 backdrop-blur-md rounded-full border border-white/10">
                   <Loader2 className="w-4 h-4 animate-spin text-blue-300" />
-                  <span className="text-sm text-blue-200">Checking services...</span>
+                  <span className="text-sm text-blue-200">{t('home.hero.checkingServices')}...</span>
                 </div>
               ) : healthStatus ? (
                 <>
                   <StatusBadge
-                    label="OCR Engine"
+                    label={t('home.hero.ocrEngine')}
                     icon={<Scan className="w-4 h-4" />}
                     ready={healthStatus.services.ocr.initialized}
                   />
                   <StatusBadge
-                    label="ML Model"
+                    label={t('home.hero.mlModel')}
                     icon={<Brain className="w-4 h-4" />}
                     ready={healthStatus.services.ml_model.initialized}
                   />
@@ -112,7 +121,7 @@ const Home = () => {
               ) : (
                 <div className="flex items-center gap-3 px-5 py-2.5 bg-rose-500/20 backdrop-blur-md rounded-full border border-rose-400/20">
                   <XCircle className="w-4 h-4 text-rose-300" />
-                  <span className="text-sm text-rose-200">Backend offline</span>
+                  <span className="text-sm text-rose-200">{t('home.hero.backendOffline')}</span>
                 </div>
               )}
             </div>
@@ -133,35 +142,35 @@ const Home = () => {
           <div className="text-center mb-16">
             <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-medium mb-4">
               <Zap className="w-4 h-4" />
-              How It Works
+              {t('home.howItWorks.badge')}
             </div>
             <h2 className="text-display-md text-slate-900 mb-4">
-              Three Steps to Better Health Insights
+              {t('home.howItWorks.heading')}
             </h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              Get comprehensive glucose analysis powered by advanced AI technology
+              {t('home.howItWorks.subtitle')}
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             <FeatureCard
               icon={<Upload className="w-7 h-7" />}
-              title="Upload Report"
-              description="Simply upload a photo of your glucose lab report. Our OCR technology extracts values automatically with high accuracy."
+              title={t('home.howItWorks.upload.title')}
+              description={t('home.howItWorks.upload.description')}
               step={1}
               gradient="from-blue-500 to-indigo-600"
             />
             <FeatureCard
               icon={<PenTool className="w-7 h-7" />}
-              title="Manual Input"
-              description="Enter fasting glucose, post-meal readings, or HbA1c values directly for instant classification against ADA guidelines."
+              title={t('home.howItWorks.manual.title')}
+              description={t('home.howItWorks.manual.description')}
               step={2}
               gradient="from-emerald-500 to-teal-600"
             />
             <FeatureCard
               icon={<BarChart3 className="w-7 h-7" />}
-              title="Get Insights"
-              description="Receive detailed analysis with visual gauges, personalized recommendations, and comprehensive risk assessment."
+              title={t('home.howItWorks.insights.title')}
+              description={t('home.howItWorks.insights.description')}
               step={3}
               gradient="from-violet-500 to-purple-600"
             />
@@ -177,38 +186,37 @@ const Home = () => {
               <div>
                 <div className="inline-flex items-center gap-2 bg-indigo-100 text-indigo-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
                   <Brain className="w-4 h-4" />
-                  Technology Stack
+                  {t('home.capabilities.badge')}
                 </div>
                 <h2 className="text-display-md text-slate-900 mb-6">
-                  Powered by Advanced AI & Medical Standards
+                  {t('home.capabilities.heading')}
                 </h2>
                 <p className="text-lg text-slate-600 mb-10">
-                  Our platform combines cutting-edge technology with established medical guidelines
-                  to provide accurate and reliable health insights.
+                  {t('home.capabilities.subtitle')}
                 </p>
                 <div className="space-y-5">
                   <CapabilityItem
                     icon={<Scan className="w-5 h-5" />}
-                    title="PaddleOCR Integration"
-                    description="State-of-the-art text recognition extracts glucose values from lab report images with high precision"
+                    title={t('home.capabilities.ocr.title')}
+                    description={t('home.capabilities.ocr.description')}
                     gradient="from-blue-500 to-indigo-600"
                   />
                   <CapabilityItem
                     icon={<Shield className="w-5 h-5" />}
-                    title="ADA Classification Standards"
-                    description="Glucose levels classified according to American Diabetes Association clinical guidelines"
+                    title={t('home.capabilities.ada.title')}
+                    description={t('home.capabilities.ada.description')}
                     gradient="from-emerald-500 to-teal-600"
                   />
                   <CapabilityItem
                     icon={<Brain className="w-5 h-5" />}
-                    title="Random Forest ML Model"
-                    description="Trained on clinical data to predict diabetes risk based on multiple health factors"
+                    title={t('home.capabilities.ml.title')}
+                    description={t('home.capabilities.ml.description')}
                     gradient="from-violet-500 to-purple-600"
                   />
                   <CapabilityItem
                     icon={<Heart className="w-5 h-5" />}
-                    title="Comprehensive Test Support"
-                    description="Full support for FBS, PPBS, RBS, OGTT, and HbA1c test classifications"
+                    title={t('home.capabilities.tests.title')}
+                    description={t('home.capabilities.tests.description')}
                     gradient="from-rose-500 to-pink-600"
                   />
                 </div>
@@ -221,18 +229,12 @@ const Home = () => {
                     <Activity className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-800">Supported Tests</h3>
-                    <p className="text-sm text-slate-500">Normal ranges based on ADA guidelines</p>
+                    <h3 className="text-lg font-semibold text-slate-800">{t('home.supportedTests.heading')}</h3>
+                    <p className="text-sm text-slate-500">{t('home.supportedTests.subtitle')}</p>
                   </div>
                 </div>
                 <div className="space-y-3">
-                  {[
-                    { name: 'Fasting Blood Sugar (FBS)', range: '70-99 mg/dL', icon: '🌅' },
-                    { name: 'Post-Prandial (PPBS)', range: '< 140 mg/dL', icon: '🍽️' },
-                    { name: 'Random Blood Sugar (RBS)', range: '< 140 mg/dL', icon: '🕐' },
-                    { name: 'OGTT (2-hour)', range: '< 140 mg/dL', icon: '⏱️' },
-                    { name: 'HbA1c', range: '4.0-5.6%', icon: '📊' },
-                  ].map((test, index) => (
+                  {TESTS.map((test, index) => (
                     <div
                       key={test.name}
                       className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border border-slate-200 hover:shadow-md transition-shadow animate-fade-in-up"
@@ -265,20 +267,20 @@ const Home = () => {
         <div className="container mx-auto px-4 text-center relative">
           <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full mb-6">
             <Sparkles className="w-4 h-4 text-yellow-300" />
-            <span className="text-sm font-medium text-white">Start Your Health Journey</span>
+            <span className="text-sm font-medium text-white">{t('home.cta.badge')}</span>
           </div>
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Ready to understand your glucose levels?
+            {t('home.cta.heading')}
           </h2>
           <p className="text-blue-100 mb-10 max-w-xl mx-auto text-lg">
-            Get instant, AI-powered analysis of your blood glucose reports
+            {t('home.cta.subtitle')}
           </p>
           <Link
             to="/analyze"
             className="group inline-flex items-center gap-3 bg-white text-indigo-700 font-semibold px-10 py-5 rounded-2xl hover:bg-blue-50 transition-all shadow-2xl shadow-black/20 hover:scale-[1.02] active:scale-[0.98]"
           >
             <Activity className="w-5 h-5" />
-            Start Free Analysis
+            {t('home.cta.button')}
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>

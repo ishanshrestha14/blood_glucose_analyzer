@@ -25,35 +25,36 @@ import {
   Inbox,
   Sparkles,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { getHistory, deleteAnalysis, getTrends, getInsight, API_BASE_URL } from '../services/api';
 import type { AnalysisHistoryItem, TrendDataPoint, TrendInsight } from '../types';
+import { translateClassification, translateRisk } from '../i18n/classificationMap';
 
-const TYPE_CONFIG: Record<
-  string,
-  { label: string; icon: React.ReactNode; color: string; bg: string; border: string }
-> = {
-  ocr: {
-    label: 'OCR Upload',
-    icon: <Scan className="w-3.5 h-3.5" />,
-    color: 'text-blue-700',
-    bg: 'bg-blue-50',
-    border: 'border-blue-200',
-  },
-  manual: {
-    label: 'Manual Input',
-    icon: <FlaskConical className="w-3.5 h-3.5" />,
-    color: 'text-emerald-700',
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-200',
-  },
-  risk: {
-    label: 'Risk Assessment',
-    icon: <Shield className="w-3.5 h-3.5" />,
-    color: 'text-violet-700',
-    bg: 'bg-violet-50',
-    border: 'border-violet-200',
-  },
-};
+function getTypeConfig(t: ReturnType<typeof useTranslation>['t']) {
+  return {
+    ocr: {
+      label: t('history.typeLabels.ocr'),
+      icon: <Scan className="w-3.5 h-3.5" />,
+      color: 'text-blue-700',
+      bg: 'bg-blue-50',
+      border: 'border-blue-200',
+    },
+    manual: {
+      label: t('history.typeLabels.manual'),
+      icon: <FlaskConical className="w-3.5 h-3.5" />,
+      color: 'text-emerald-700',
+      bg: 'bg-emerald-50',
+      border: 'border-emerald-200',
+    },
+    risk: {
+      label: t('history.typeLabels.risk'),
+      icon: <Shield className="w-3.5 h-3.5" />,
+      color: 'text-violet-700',
+      bg: 'bg-violet-50',
+      border: 'border-violet-200',
+    },
+  } as Record<string, { label: string; icon: React.ReactNode; color: string; bg: string; border: string }>;
+}
 
 const CLASSIFICATION_COLORS: Record<string, string> = {
   Normal: 'text-emerald-700 bg-emerald-50 border-emerald-200',
@@ -72,6 +73,9 @@ const RISK_COLORS: Record<string, string> = {
 const PAGE_SIZE = 10;
 
 const History = () => {
+  const { t } = useTranslation();
+  const typeConfig = getTypeConfig(t);
+
   const [analyses, setAnalyses] = useState<AnalysisHistoryItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -152,7 +156,6 @@ const History = () => {
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  // Format trend data for recharts
   const chartData = trendData.map((pt) => ({
     ...pt,
     date: new Date(pt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -171,11 +174,11 @@ const History = () => {
           <div className="max-w-4xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full mb-4 border border-white/10">
               <Clock className="w-4 h-4 text-indigo-300" />
-              <span className="text-sm font-medium text-indigo-100">Analysis History</span>
+              <span className="text-sm font-medium text-indigo-100">{t('history.hero.badge')}</span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-3">Your Results Over Time</h1>
+            <h1 className="text-3xl md:text-4xl font-bold mb-3">{t('history.hero.heading')}</h1>
             <p className="text-blue-100/80 text-lg max-w-xl mx-auto">
-              Track trends, review past analyses, and download reports
+              {t('history.hero.subtitle')}
             </p>
           </div>
         </div>
@@ -191,13 +194,12 @@ const History = () => {
                   <BarChart3 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg">Glucose Trends</h3>
-                  <p className="text-white/70 text-sm">{chartData.length} data points</p>
+                  <h3 className="font-semibold text-lg">{t('history.trends.heading')}</h3>
+                  <p className="text-white/70 text-sm">{chartData.length} {t('history.trends.dataPoints')}</p>
                 </div>
               </div>
               {/* Date range controls */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* Quick-select pills */}
                 {([7, 30, 90] as const).map((d) => (
                   <button
                     key={d}
@@ -218,7 +220,6 @@ const History = () => {
                     {d}d
                   </button>
                 ))}
-                {/* Date inputs */}
                 <input
                   type="date"
                   aria-label="Start date"
@@ -230,7 +231,7 @@ const History = () => {
                   }}
                   className="bg-white/10 text-white text-sm rounded-lg px-2 py-1 border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
                 />
-                <span className="text-white/60 text-sm">to</span>
+                <span className="text-white/60 text-sm">{t('history.trends.dateTo')}</span>
                 <input
                   type="date"
                   aria-label="End date"
@@ -256,7 +257,6 @@ const History = () => {
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                      {/* Reference zones: Normal (70-99), Prediabetes (100-125), Diabetes (126+) */}
                       <ReferenceArea y1={70} y2={99} fill="#10B981" fillOpacity={0.06} />
                       <ReferenceArea y1={100} y2={125} fill="#F59E0B" fillOpacity={0.06} />
                       <ReferenceArea y1={126} y2={300} fill="#EF4444" fillOpacity={0.06} />
@@ -297,7 +297,6 @@ const History = () => {
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
-                {/* Insight banner */}
                 {insightLoading ? (
                   <div className="mt-4 h-10 bg-indigo-50 rounded-xl animate-pulse" />
                 ) : insight && insight.count >= 2 ? (
@@ -309,23 +308,23 @@ const History = () => {
                 <div className="flex items-center justify-center gap-6 mt-3 text-xs text-slate-500">
                   <span className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-sm bg-emerald-500/20 border border-emerald-300" />
-                    Normal (70-99)
+                    {t('history.trends.legend.normal')} (70-99)
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-sm bg-amber-500/20 border border-amber-300" />
-                    Prediabetes (100-125)
+                    {t('history.trends.legend.prediabetes')} (100-125)
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded-sm bg-rose-500/20 border border-rose-300" />
-                    Diabetes (126+)
+                    {t('history.trends.legend.diabetes')} (126+)
                   </span>
                 </div>
               </>
             ) : (
               <div className="h-64 flex flex-col items-center justify-center">
                 <TrendingUp className="w-10 h-10 text-slate-300 mb-3" />
-                <p className="font-semibold text-slate-600">No glucose data</p>
-                <p className="text-sm text-slate-400 mt-1">Analyses with glucose values will appear here.</p>
+                <p className="font-semibold text-slate-600">{t('history.trends.noData.heading')}</p>
+                <p className="text-sm text-slate-400 mt-1">{t('history.trends.noData.subtitle')}</p>
               </div>
             )}
           </div>
@@ -341,8 +340,8 @@ const History = () => {
                   <Activity className="w-5 h-5 text-slate-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-800">Past Analyses</h3>
-                  <p className="text-xs text-slate-500">{total} total records</p>
+                  <h3 className="font-semibold text-slate-800">{t('history.table.heading')}</h3>
+                  <p className="text-xs text-slate-500">{total} {t('history.table.totalRecords')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -355,10 +354,10 @@ const History = () => {
                   }}
                   className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
                 >
-                  <option value="">All Types</option>
-                  <option value="ocr">OCR Upload</option>
-                  <option value="manual">Manual Input</option>
-                  <option value="risk">Risk Assessment</option>
+                  <option value="">{t('history.table.filterAll')}</option>
+                  <option value="ocr">{t('history.table.filterOcr')}</option>
+                  <option value="manual">{t('history.table.filterManual')}</option>
+                  <option value="risk">{t('history.table.filterRisk')}</option>
                 </select>
               </div>
             </div>
@@ -386,28 +385,26 @@ const History = () => {
               <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
                 <Inbox className="w-8 h-8 text-slate-400" />
               </div>
-              <h4 className="font-semibold text-slate-700 mb-1">No analyses yet</h4>
+              <h4 className="font-semibold text-slate-700 mb-1">{t('history.table.empty.heading')}</h4>
               <p className="text-sm text-slate-500 text-center max-w-xs">
-                Save your analysis results to build a history and track trends over time.
+                {t('history.table.empty.subtitle')}
               </p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
               {analyses.map((item) => {
-                const typeConf = TYPE_CONFIG[item.analysis_type] || TYPE_CONFIG.manual;
+                const typeConf = typeConfig[item.analysis_type] || typeConfig.manual;
                 return (
                   <div
                     key={item.id}
                     className="p-4 flex items-center gap-4 hover:bg-slate-50/50 transition-colors"
                   >
-                    {/* Type badge */}
                     <div
                       className={`w-9 h-9 rounded-lg ${typeConf.bg} border ${typeConf.border} flex items-center justify-center flex-shrink-0`}
                     >
                       <span className={typeConf.color}>{typeConf.icon}</span>
                     </div>
 
-                    {/* Details */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-medium text-slate-800">
@@ -424,7 +421,7 @@ const History = () => {
                               CLASSIFICATION_COLORS[item.classification] || 'text-slate-600 bg-slate-50 border-slate-200'
                             }`}
                           >
-                            {item.classification}
+                            {translateClassification(item.classification, t)}
                           </span>
                         )}
                         {item.risk_category && (
@@ -433,7 +430,7 @@ const History = () => {
                               RISK_COLORS[item.risk_category] || ''
                             }`}
                           >
-                            {item.risk_category} Risk
+                            {translateRisk(item.risk_category, t)} {t('history.table.risk')}
                             {item.risk_percentage != null && ` (${item.risk_percentage.toFixed(0)}%)`}
                           </span>
                         )}
@@ -454,14 +451,13 @@ const History = () => {
                       </p>
                     </div>
 
-                    {/* Actions */}
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <a
                         href={`${API_BASE_URL}/api/report/pdf/${item.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                        title="Download PDF"
+                        title={t('history.actions.downloadPdf')}
                       >
                         <FileDown className="w-4 h-4" />
                       </a>
@@ -469,7 +465,7 @@ const History = () => {
                         onClick={() => handleDelete(item.id)}
                         disabled={deletingId === item.id}
                         className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50"
-                        title="Delete"
+                        title={t('history.actions.delete')}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -484,7 +480,7 @@ const History = () => {
           {totalPages > 1 && (
             <div className="p-4 border-t border-slate-100 flex items-center justify-between">
               <p className="text-sm text-slate-500">
-                Page {page + 1} of {totalPages}
+                {t('history.pagination.page')} {page + 1} {t('history.pagination.of')} {totalPages}
               </p>
               <div className="flex gap-1.5">
                 <button

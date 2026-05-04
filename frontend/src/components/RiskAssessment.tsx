@@ -12,8 +12,10 @@ import {
   Calendar,
   Sparkles,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { RiskPredictionResponse, RiskPredictionWithExplanation, ConfidenceLevel } from '../types';
 import { CONFIDENCE_LABELS } from '../types';
+import { translateRisk } from '../i18n/classificationMap';
 import ShapExplanation from './ShapExplanation';
 import ConfidenceDisplay from './ConfidenceDisplay';
 
@@ -52,6 +54,7 @@ const RISK_CONFIG = {
 };
 
 const RiskAssessment = ({ result }: RiskAssessmentProps) => {
+  const { t } = useTranslation();
   const [animatedPercentage, setAnimatedPercentage] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -136,9 +139,9 @@ const RiskAssessment = ({ result }: RiskAssessmentProps) => {
               <Sparkles className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold">Risk Assessment Complete</h2>
+              <h2 className="text-xl font-semibold">{t('riskAssessment.riskCategory')}</h2>
               <p className="text-white/80 text-sm mt-0.5">
-                Based on {result.factors_provided.length} health factors analyzed
+                {result.factors_provided.length} {t('riskAssessment.factorsAnalyzed')}
               </p>
             </div>
           </div>
@@ -207,7 +210,7 @@ const RiskAssessment = ({ result }: RiskAssessmentProps) => {
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-lg ${config.bg} ${config.border} border ${config.text}`}
                 >
                   <RiskIcon className="w-5 h-5" />
-                  {result.risk_category} Risk
+                  {translateRisk(result.risk_category, t)} {t('riskAssessment.risk')}
                 </span>
                 <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-full text-sm font-medium">
                   {getConfidenceBars(result.confidence_level)}
@@ -220,13 +223,13 @@ const RiskAssessment = ({ result }: RiskAssessmentProps) => {
               {/* Quick Stats */}
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
-                  <p className="text-label mb-0.5">Risk Probability</p>
+                  <p className="text-label mb-0.5">{t('riskAssessment.riskScore')}</p>
                   <p className="text-xl font-bold text-slate-800">
                     {(result.risk_probability * 100).toFixed(1)}%
                   </p>
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-100">
-                  <p className="text-label mb-0.5">Factors Analyzed</p>
+                  <p className="text-label mb-0.5">{t('riskAssessment.factorsAnalyzed')}</p>
                   <p className="text-xl font-bold text-slate-800">
                     {result.factors_provided.length}
                     <span className="text-sm font-normal text-slate-400 ml-1">/ 8</span>

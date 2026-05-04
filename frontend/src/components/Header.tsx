@@ -1,20 +1,23 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Activity, Menu, X, Sparkles } from 'lucide-react';
 import { useState, useEffect, useRef, useLayoutEffect } from 'react';
-
-const NAV_LINKS = [
-  { path: '/', label: 'Home' },
-  { path: '/analyze', label: 'Analyze' },
-  { path: '/history', label: 'History' },
-  { path: '/about', label: 'About' },
-];
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from './LanguageSwitcher';
 
 const Header = () => {
   const location = useLocation();
+  const { t } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const navRef = useRef<HTMLUListElement>(null);
   const [indicator, setIndicator] = useState({ left: 0, width: 0, ready: false });
+
+  const NAV_LINKS = [
+    { path: '/', label: t('common.nav.home') },
+    { path: '/analyze', label: t('common.nav.analyze') },
+    { path: '/history', label: t('common.nav.history') },
+    { path: '/about', label: t('common.nav.about') },
+  ];
 
   useEffect(() => {
     const handleScroll = () => {
@@ -69,7 +72,6 @@ const Header = () => {
 
           {/* Desktop Navigation */}
           <ul ref={navRef} className="hidden md:flex items-center gap-1 bg-slate-100/80 rounded-full p-1.5 relative">
-            {/* Sliding glassmorphic indicator */}
             {indicator.ready && (
               <div
                 className="absolute top-1.5 bottom-1.5 bg-white/80 backdrop-blur-xl rounded-full shadow-lg shadow-blue-500/10 border border-white/70 ring-1 ring-black/[0.04] transition-all duration-300 pointer-events-none"
@@ -97,18 +99,21 @@ const Header = () => {
             ))}
           </ul>
 
-          {/* CTA Button - invisible spacer on /analyze to keep nav centered */}
-          {location.pathname !== '/analyze' ? (
-            <Link
-              to="/analyze"
-              className="hidden md:inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold px-5 py-2.5 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/35 hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <Sparkles className="w-4 h-4" />
-              Start Analysis
-            </Link>
-          ) : (
-            <div className="hidden md:block w-[165px]" />
-          )}
+          {/* Desktop right: language switcher + CTA */}
+          <div className="hidden md:flex items-center gap-2">
+            <LanguageSwitcher variant="header" />
+            {location.pathname !== '/analyze' ? (
+              <Link
+                to="/analyze"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold px-5 py-2.5 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/35 hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Sparkles className="w-4 h-4" />
+                {t('common.nav.startAnalysis')}
+              </Link>
+            ) : (
+              <div className="w-[165px]" />
+            )}
+          </div>
 
           {/* Mobile Menu Button */}
           <button
@@ -128,6 +133,7 @@ const Header = () => {
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden py-4 border-t border-slate-200 animate-fade-in-up">
+            <LanguageSwitcher variant="mobile" />
             <ul className="space-y-1">
               {NAV_LINKS.map((link) => (
                 <li key={link.path}>
@@ -152,7 +158,7 @@ const Header = () => {
                     className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold px-4 py-3.5 rounded-xl"
                   >
                     <Sparkles className="w-4 h-4" />
-                    Start Analysis
+                    {t('common.nav.startAnalysis')}
                   </Link>
                 </li>
               )}

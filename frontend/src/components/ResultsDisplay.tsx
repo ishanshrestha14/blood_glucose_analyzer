@@ -15,6 +15,7 @@ import {
   FileDown,
   Check,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type {
   ResultType,
   AnalyzeResponse,
@@ -25,6 +26,7 @@ import type {
   SaveAnalysisRequest,
 } from '../types';
 import { TEST_TYPE_LABELS } from '../types';
+import { translateClassification } from '../i18n/classificationMap';
 import { saveAnalysis } from '../services/api';
 import { API_BASE_URL } from '../services/api';
 import GaugeChart from './GaugeChart';
@@ -51,6 +53,7 @@ const ResultsDisplay = ({ result }: ResultsDisplayProps) => {
 // Save & Download Bar
 // ============================================
 const SaveBar = ({ result }: { result: ResultType }) => {
+  const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
 
@@ -73,13 +76,13 @@ const SaveBar = ({ result }: { result: ResultType }) => {
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 transition-colors"
         >
           <Save className="w-3.5 h-3.5" />
-          {saving ? 'Saving...' : 'Save to History'}
+          {saving ? t('results.saving') : t('results.saveToHistory')}
         </button>
       ) : (
         <>
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-600 rounded-lg border border-emerald-200 ">
             <Check className="w-3.5 h-3.5" />
-            Saved
+            {t('results.saved')}
           </span>
           <a
             href={`${API_BASE_URL}/api/report/pdf/${savedId}`}
@@ -88,7 +91,7 @@ const SaveBar = ({ result }: { result: ResultType }) => {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-colors"
           >
             <FileDown className="w-3.5 h-3.5" />
-            Download PDF
+            {t('results.downloadPdf')}
           </a>
         </>
       )}
@@ -141,6 +144,7 @@ interface StatusBadgeProps {
 }
 
 const StatusBadge = ({ classification, size = 'md' }: StatusBadgeProps) => {
+  const { t } = useTranslation();
   const config = {
     Normal: {
       bg: 'bg-gradient-to-r from-emerald-50 to-emerald-100',
@@ -190,19 +194,20 @@ const StatusBadge = ({ classification, size = 'md' }: StatusBadgeProps) => {
       className={`inline-flex items-center font-semibold rounded-full border ${config.bg} ${config.border} ${config.text} ${sizeClasses} shadow-sm ${config.glow}`}
     >
       {config.icon}
-      {classification}
+      {translateClassification(classification, t)}
     </span>
   );
 };
 
 // ============================================
-// OCR Analysis Results - Medical Intelligence Report
+// OCR Analysis Results
 // ============================================
 interface AnalyzeResultsDisplayProps {
   data: AnalyzeResponse;
 }
 
 const AnalyzeResultsDisplay = ({ data }: AnalyzeResultsDisplayProps) => {
+  const { t } = useTranslation();
   const [showExtractedText, setShowExtractedText] = useState(false);
 
   if (!data.is_valid_report) {
@@ -215,14 +220,14 @@ const AnalyzeResultsDisplay = ({ data }: AnalyzeResultsDisplayProps) => {
             </div>
             <div>
               <h3 className="text-xl font-semibold text-slate-800 mb-2">
-                Unable to Process Report
+                {t('results.unableToProcess')}
               </h3>
               <p className="text-slate-600 leading-relaxed mb-4">
                 {data.validation?.message || data.message || 'This image does not appear to be a valid glucose report.'}
               </p>
               <div className="flex items-center gap-2 text-sm text-amber-600">
                 <Zap className="w-4 h-4" />
-                <span>Tip: Ensure the image is clear and contains glucose test results</span>
+                <span>{t('results.imageTip')}</span>
               </div>
             </div>
           </div>
@@ -233,7 +238,7 @@ const AnalyzeResultsDisplay = ({ data }: AnalyzeResultsDisplayProps) => {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      {/* Report Header - Intelligence Summary */}
+      {/* Report Header */}
       <div className="card-elevated overflow-hidden">
         <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 p-6 text-white">
           <div className="flex items-start justify-between">
@@ -242,15 +247,15 @@ const AnalyzeResultsDisplay = ({ data }: AnalyzeResultsDisplayProps) => {
                 <Sparkles className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold">Analysis Complete</h2>
+                <h2 className="text-xl font-semibold">{t('results.analysisComplete')}</h2>
                 <p className="text-blue-100 text-sm mt-0.5">
-                  {data.detected_values.length} glucose value{data.detected_values.length !== 1 ? 's' : ''} detected
+                  {t('results.valuesDetected', { count: data.detected_values.length })}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2 bg-white/10 backdrop-blur rounded-full px-3 py-1.5">
               <Clock className="w-4 h-4 text-blue-200" />
-              <span className="text-sm text-blue-100">Just now</span>
+              <span className="text-sm text-blue-100">{t('results.justNow')}</span>
             </div>
           </div>
         </div>
@@ -264,7 +269,7 @@ const AnalyzeResultsDisplay = ({ data }: AnalyzeResultsDisplayProps) => {
         <div className="space-y-4">
           <div className="flex items-center gap-2 px-1">
             <Activity className="w-5 h-5 text-slate-400" />
-            <h3 className="text-label">Test Results</h3>
+            <h3 className="text-label">{t('results.testResults')}</h3>
           </div>
           <div className="grid gap-4">
             {data.classifications.map((item, index) => (
@@ -291,8 +296,8 @@ const AnalyzeResultsDisplay = ({ data }: AnalyzeResultsDisplayProps) => {
                 <FileText className="w-4 h-4 text-slate-500" />
               </div>
               <div className="text-left">
-                <span className="text-sm font-medium text-slate-700">Extracted Text</span>
-                <p className="text-xs text-slate-500">View raw OCR output</p>
+                <span className="text-sm font-medium text-slate-700">{t('results.extractedText')}</span>
+                <p className="text-xs text-slate-500">{t('results.viewRawOcr')}</p>
               </div>
             </div>
             <ChevronDown
@@ -322,27 +327,26 @@ interface ManualResultDisplayProps {
 }
 
 const ManualResultDisplay = ({ data }: ManualResultDisplayProps) => {
+  const { t } = useTranslation();
   return (
     <div className="space-y-6 animate-fade-in-up">
-      {/* Input confirmation */}
       <div className="flex items-center gap-3 px-1">
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <Target className="w-4 h-4" />
-          <span>Analyzed:</span>
+          <span>{t('results.analyzed')}</span>
         </div>
         <span className="text-sm font-medium text-slate-700">
           {TEST_TYPE_LABELS[data.input.test_type]} · {data.input.value} {data.input.unit}
         </span>
       </div>
 
-      {/* Result Card */}
       <ClassificationCard classification={data.classification} />
     </div>
   );
 };
 
 // ============================================
-// Premium Classification Card
+// Classification Card
 // ============================================
 interface ClassificationCardProps {
   classification: ClassificationResult;
@@ -351,6 +355,7 @@ interface ClassificationCardProps {
 }
 
 const ClassificationCard = ({ classification, confidence, index = 0 }: ClassificationCardProps) => {
+  const { t } = useTranslation();
   const severityConfig = {
     Normal: {
       gradient: 'from-emerald-500 to-teal-600',
@@ -392,12 +397,10 @@ const ClassificationCard = ({ classification, confidence, index = 0 }: Classific
         boxShadow: severityConfig.glow,
       }}
     >
-      {/* Gradient accent bar */}
       <div className={`h-1 bg-gradient-to-r ${severityConfig.gradient}`} />
 
       <div className="p-6">
         <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-          {/* Gauge Section */}
           <div className="flex justify-center lg:justify-start">
             <GaugeChart
               value={classification.value}
@@ -409,23 +412,20 @@ const ClassificationCard = ({ classification, confidence, index = 0 }: Classific
             />
           </div>
 
-          {/* Info Section */}
           <div className="flex-1 space-y-4">
-            {/* Status Row */}
             <div className="flex flex-wrap items-center gap-3">
               <StatusBadge classification={classification.classification} size="lg" />
               {confidence !== undefined && confidence > 0 && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-sm font-medium">
                   <Zap className="w-3.5 h-3.5" />
-                  {(confidence * 100).toFixed(0)}% confidence
+                  {(confidence * 100).toFixed(0)}% {t('riskAssessment.confidence').toLowerCase()}
                 </span>
               )}
             </div>
 
-            {/* Metrics Grid */}
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-100">
-                <p className="text-label mb-1">Your Value</p>
+                <p className="text-label mb-1">{t('results.yourValue')}</p>
                 <p className="text-2xl font-bold text-slate-800">
                   {classification.value}
                   <span className="text-base font-normal text-slate-400 ml-1">
@@ -434,7 +434,7 @@ const ClassificationCard = ({ classification, confidence, index = 0 }: Classific
                 </p>
               </div>
               <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-100">
-                <p className="text-label mb-1">Normal Range</p>
+                <p className="text-label mb-1">{t('results.normalRange')}</p>
                 <p className="text-2xl font-bold text-emerald-600">
                   {classification.normal_range.min}-{classification.normal_range.max}
                   <span className="text-base font-normal text-slate-400 ml-1">
@@ -444,12 +444,11 @@ const ClassificationCard = ({ classification, confidence, index = 0 }: Classific
               </div>
             </div>
 
-            {/* Recommendation */}
             <div className={`p-4 rounded-xl ${severityConfig.bg} border ${severityConfig.border}`}>
               <div className="flex items-start gap-3">
                 <TrendingUp className="w-5 h-5 text-slate-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-slate-700 mb-1">Recommendation</p>
+                  <p className="text-sm font-medium text-slate-700 mb-1">{t('results.recommendation')}</p>
                   <p className="text-sm text-slate-600 leading-relaxed">
                     {classification.recommendation}
                   </p>

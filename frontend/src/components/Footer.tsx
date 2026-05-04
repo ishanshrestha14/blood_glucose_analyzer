@@ -1,7 +1,9 @@
 import { Activity, Heart } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const Footer = () => {
+  const { t } = useTranslation();
   const currentYear = new Date().getFullYear();
 
   return (
@@ -14,31 +16,30 @@ const Footer = () => {
               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
                 <Activity className="w-4 h-4 text-white" />
               </div>
-              <span className="font-bold text-white">Glucose Analyzer</span>
+              <span className="font-bold text-white">{t('common.footer.brand')}</span>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">
-              An educational tool for analyzing blood glucose levels using OCR
-              and machine learning technology.
+              {t('common.footer.tagline')}
             </p>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h4 className="font-semibold text-white mb-4">Quick Links</h4>
+            <h4 className="font-semibold text-white mb-4">{t('common.footer.quickLinks')}</h4>
             <ul className="space-y-2">
               <li>
                 <Link to="/" className="text-sm hover:text-white transition-colors">
-                  Home
+                  {t('common.nav.home')}
                 </Link>
               </li>
               <li>
                 <Link to="/analyze" className="text-sm hover:text-white transition-colors">
-                  Analyze
+                  {t('common.nav.analyze')}
                 </Link>
               </li>
               <li>
                 <Link to="/about" className="text-sm hover:text-white transition-colors">
-                  About
+                  {t('common.nav.about')}
                 </Link>
               </li>
             </ul>
@@ -46,7 +47,7 @@ const Footer = () => {
 
           {/* Resources */}
           <div>
-            <h4 className="font-semibold text-white mb-4">Resources</h4>
+            <h4 className="font-semibold text-white mb-4">{t('common.footer.resources')}</h4>
             <ul className="space-y-2">
               <li>
                 <a
@@ -55,7 +56,7 @@ const Footer = () => {
                   rel="noopener noreferrer"
                   className="text-sm hover:text-white transition-colors"
                 >
-                  ADA Guidelines
+                  {t('common.footer.adaGuidelines')}
                 </a>
               </li>
               <li>
@@ -65,7 +66,7 @@ const Footer = () => {
                   rel="noopener noreferrer"
                   className="text-sm hover:text-white transition-colors"
                 >
-                  CDC Diabetes Info
+                  {t('common.footer.cdcInfo')}
                 </a>
               </li>
             </ul>
@@ -76,10 +77,10 @@ const Footer = () => {
         <div className="border-t border-slate-800 mt-8 pt-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-slate-500">
-              &copy; {currentYear} Blood Glucose Analyzer. For educational purposes only.
+              &copy; {currentYear} {t('common.footer.copyright')}
             </p>
             <p className="text-sm text-slate-500 flex items-center gap-1">
-              Made with <Heart className="w-4 h-4 text-rose-500" /> for better health
+              {t('common.footer.madeWith')} <Heart className="w-4 h-4 text-rose-500 mx-1" /> for better health
             </p>
           </div>
         </div>

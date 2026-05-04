@@ -1,0 +1,301 @@
+{
+  "common": {
+    "nav": {
+      "home": "Home",
+      "analyze": "Analyze",
+      "history": "History",
+      "about": "About",
+      "startAnalysis": "Start Analysis"
+    },
+    "footer": {
+      "brand": "Glucose Analyzer",
+      "tagline": "An educational tool for analyzing blood glucose levels using OCR and machine learning technology.",
+      "quickLinks": "Quick Links",
+      "resources": "Resources",
+      "adaGuidelines": "ADA Guidelines",
+      "cdcInfo": "CDC Diabetes Info",
+      "copyright": "Blood Glucose Analyzer. For educational purposes only.",
+      "madeWith": "Made with"
+    },
+    "disclaimer": {
+      "title": "Medical Disclaimer",
+      "body": "This tool is intended for educational and informational purposes only.\nIt is not a substitute for professional medical advice, diagnosis, or treatment.\nAlways consult with a qualified healthcare provider for medical concerns.",
+      "educationalOnly": "Educational Only",
+      "notMedicalAdvice": "Not Medical Advice",
+      "consultProvider": "Consult Healthcare Provider",
+      "inlineShort": "For educational purposes only. Not a medical diagnosis.",
+      "compactTitle": "Educational Use Only",
+      "compactBody": "Consult a healthcare provider for medical advice, diagnosis, or treatment."
+    }
+  },
+  "home": {
+    "hero": {
+      "badge": "AI-Powered Health Intelligence",
+      "heading1": "Understand Your",
+      "heading2": "Blood Glucose",
+      "subtitle": "Upload lab reports, enter values manually, or assess your diabetes risk using AI and ADA-certified guidelines",
+      "ctaStart": "Start Free Analysis",
+      "ctaLearnMore": "Learn More",
+      "checkingServices": "Checking services",
+      "backendOffline": "Backend offline — manual input still works",
+      "ocrEngine": "OCR Engine",
+      "mlModel": "ML Model"
+    },
+    "howItWorks": {
+      "badge": "Simple & Fast",
+      "heading": "How It Works",
+      "subtitle": "Three ways to analyze your glucose data — all powered by AI",
+      "upload": {
+        "title": "Upload Report",
+        "description": "Take a photo or upload your lab report — our OCR engine extracts glucose values automatically"
+      },
+      "manual": {
+        "title": "Enter Manually",
+        "description": "Type in your glucose values and get instant ADA-based classification results"
+      },
+      "insights": {
+        "title": "Get Insights",
+        "description": "Receive detailed classification, recommendations, and diabetes risk prediction"
+      }
+    },
+    "capabilities": {
+      "badge": "Advanced Technology",
+      "heading": "Powered by AI",
+      "subtitle": "Industry-leading technologies combined for accurate glucose analysis",
+      "ocr": {
+        "title": "OCR Extraction",
+        "description": "PaddleOCR with OpenCV preprocessing accurately extracts glucose values from any lab report format"
+      },
+      "ada": {
+        "title": "ADA Guidelines",
+        "description": "All classifications follow American Diabetes Association's 2024 Standards of Medical Care"
+      },
+      "ml": {
+        "title": "ML Risk Prediction",
+        "description": "Random Forest model trained on PIMA diabetes dataset predicts risk with ~74% accuracy"
+      },
+      "tests": {
+        "title": "5 Test Types",
+        "description": "Supports FBS, HbA1c, PPBS, RBS, and OGTT — all major glucose test formats"
+      }
+    },
+    "supportedTests": {
+      "heading": "Supported Test Types",
+      "subtitle": "Comprehensive coverage of all major blood glucose tests"
+    },
+    "cta": {
+      "badge": "Free & Private",
+      "heading": "Ready to Analyze Your Results?",
+      "subtitle": "No account needed. All processing is done locally — your data never leaves your device.",
+      "button": "Start Your Analysis"
+    }
+  },
+  "analyze": {
+    "hero": {
+      "badge": "AI-Powered Analysis",
+      "heading": "Glucose Analysis",
+      "subtitle": "Upload a lab report, enter values manually, or assess your diabetes risk"
+    },
+    "tabs": {
+      "upload": {
+        "label": "Upload Report",
+        "shortLabel": "Upload",
+        "description": "Upload a lab report image and let AI extract glucose values automatically"
+      },
+      "manual": {
+        "label": "Manual Input",
+        "shortLabel": "Manual",
+        "description": "Enter your glucose values manually for instant ADA-based classification"
+      },
+      "risk": {
+        "label": "Risk Assessment",
+        "shortLabel": "Risk",
+        "description": "Predict your diabetes risk using our machine learning model"
+      }
+    },
+    "loading": {
+      "upload": { "title": "Analyzing Report", "subtitle": "Extracting glucose values with OCR..." },
+      "manual": { "title": "Classifying Value", "subtitle": "Applying ADA guidelines..." },
+      "risk":   { "title": "Calculating Risk",  "subtitle": "Processing health factors..." }
+    },
+    "error": {
+      "title": "Analysis Failed",
+      "subtitle": "Something went wrong",
+      "tryAgain": "Try again",
+      "dismiss": "Dismiss"
+    }
+  },
+  "fileUpload": {
+    "heading": "Upload your lab report",
+    "subheading": "Drag and drop your glucose report image here, or click to browse your files",
+    "chooseFile": "Choose File",
+    "formats": "PNG, JPG, GIF, BMP",
+    "maxSize": "Max 16MB",
+    "errorTitle": "Upload Error",
+    "ariaLabel": "Upload lab report image",
+    "helperText": "For best results, ensure the image is clear and glucose values are visible",
+    "processingBadge": "Processing with OCR",
+    "readyBadge": "Ready",
+    "invalidType": "Please upload an image file (PNG, JPG, JPEG, GIF, or BMP)",
+    "tooLarge": "File size must be less than 16MB"
+  },
+  "manualInput": {
+    "selectTestType": "Select Test Type",
+    "enterValue": "Enter Your Value",
+    "normalRange": "Normal Range",
+    "normal": "Normal",
+    "elevated": "Elevated",
+    "analyzing": "Analyzing...",
+    "analyzeValue": "Analyze Value",
+    "hints": {
+      "fasting": "Measured after 8+ hours of fasting",
+      "hba1c": "Average blood sugar over 2-3 months",
+      "ppbs": "Measured 2 hours after eating",
+      "rbs": "Measured at any time of day",
+      "ogtt": "Measured during glucose tolerance test"
+    },
+    "errors": {
+      "required": "Please enter a glucose value",
+      "invalid": "Please enter a valid number",
+      "nonPositive": "Value must be greater than 0",
+      "hba1cTooHigh": "HbA1c value seems too high (max 20%)",
+      "glucoseTooHigh": "Glucose value seems too high"
+    }
+  },
+  "riskForm": {
+    "requiredFields": "Required Fields",
+    "optionalFactors": "Optional Factors",
+    "showOptional": "Add more factors",
+    "hideOptional": "Hide optional factors",
+    "optionalNote": "These factors improve prediction accuracy when provided",
+    "calculating": "Calculating Risk...",
+    "assessRisk": "Assess Diabetes Risk",
+    "fields": {
+      "glucose":          { "label": "Blood Glucose",   "hint": "Fasting blood glucose level" },
+      "bmi":              { "label": "BMI",              "hint": "Body Mass Index (weight/height²)" },
+      "age":              { "label": "Age",              "hint": "Your current age" },
+      "blood_pressure":   { "label": "Blood Pressure",  "hint": "Diastolic blood pressure" },
+      "insulin":          { "label": "Insulin",          "hint": "2-hour serum insulin (optional)" },
+      "skin_thickness":   { "label": "Skin Thickness",  "hint": "Triceps skin fold thickness (optional)" },
+      "pregnancies":      { "label": "Pregnancies",     "hint": "Number of times pregnant (optional)" },
+      "diabetes_pedigree":{ "label": "Diabetes Pedigree","hint": "Family history function value (optional)" }
+    },
+    "errors": {
+      "required": "This field is required",
+      "tooLow": "Value too low",
+      "tooHigh": "Value too high"
+    }
+  },
+  "ocrEditor": {
+    "header": "OCR Detected Values — Please Verify",
+    "subheader": "Review what the AI read from your report. Edit if needed, then confirm.",
+    "lowConfidenceBanner": "Some values have low OCR confidence. Compare with your original report before confirming.",
+    "confidence": "confidence",
+    "lowConfidenceWarning": "Low confidence — verify against your printed report.",
+    "invalidNumber": "Enter a valid number",
+    "footerNote": "Editing a value will re-run ADA classification with your correction.",
+    "confirmButton": "Confirm & Re-analyze"
+  },
+  "results": {
+    "analysisComplete": "Analysis Complete",
+    "valuesDetected_one": "{{count}} glucose value detected",
+    "valuesDetected_other": "{{count}} glucose values detected",
+    "justNow": "Just now",
+    "testResults": "Test Results",
+    "extractedText": "Extracted Text",
+    "viewRawOcr": "View raw OCR output",
+    "unableToProcess": "Unable to Process Report",
+    "imageTip": "Tip: Ensure the image is clear and contains glucose test results",
+    "analyzed": "Analyzed:",
+    "yourValue": "Your Value",
+    "normalRange": "Normal Range",
+    "recommendation": "Recommendation",
+    "saveToHistory": "Save to History",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "downloadPdf": "Download PDF"
+  },
+  "riskAssessment": {
+    "riskScore": "Risk Score",
+    "riskCategory": "Risk Category",
+    "confidence": "Confidence",
+    "factorsAnalyzed": "Factors Analyzed",
+    "riskFactors": "Risk Factors",
+    "protectiveFactors": "Protective Factors",
+    "risk": "Risk"
+  },
+  "history": {
+    "hero": {
+      "badge": "Your Data",
+      "heading": "Analysis History",
+      "subtitle": "Track your glucose trends and review past analyses"
+    },
+    "trends": {
+      "heading": "Glucose Trends",
+      "dataPoints": "data points",
+      "noData": {
+        "heading": "No trend data yet",
+        "subtitle": "Upload reports or enter manual values to see your glucose trends over time"
+      },
+      "legend": { "normal": "Normal", "prediabetes": "Prediabetes", "diabetes": "Diabetes" },
+      "dateTo": "to"
+    },
+    "table": {
+      "heading": "Analysis Records",
+      "totalRecords": "total",
+      "filterAll": "All",
+      "filterOcr": "OCR",
+      "filterManual": "Manual",
+      "filterRisk": "Risk",
+      "empty": {
+        "heading": "No analyses yet",
+        "subtitle": "Your analysis history will appear here after you analyze a report or enter values"
+      },
+      "risk": "Risk"
+    },
+    "pagination": { "page": "Page", "of": "of" },
+    "actions": { "downloadPdf": "PDF", "delete": "Delete" },
+    "typeLabels": { "ocr": "OCR Upload", "manual": "Manual Input", "risk": "Risk Assessment" }
+  },
+  "about": {
+    "hero": {
+      "heading": "About Blood Glucose Analyzer",
+      "subtitle": "An educational platform designed to help individuals understand their blood glucose readings"
+    },
+    "what": {
+      "heading": "What is this tool?",
+      "body": "The Blood Glucose Analyzer is an educational platform developed as a final-year thesis project. It leverages advanced technologies to help users understand their blood glucose readings:",
+      "ocr": { "title": "OCR Technology", "description": "PaddleOCR extracts glucose values from lab report images" },
+      "ada": { "title": "ADA Classification", "description": "Values are classified according to American Diabetes Association guidelines" },
+      "ml":  { "title": "ML Risk Prediction", "description": "A Random Forest model predicts diabetes risk based on health factors" }
+    },
+    "ranges": {
+      "heading": "Glucose Reference Ranges",
+      "subtitle": "Based on American Diabetes Association (ADA) 2024 guidelines",
+      "normal": "Normal",
+      "prediabetes": "Prediabetes",
+      "diabetes": "Diabetes"
+    },
+    "privacy": {
+      "heading": "Privacy & Data",
+      "body": "All analysis is performed locally. Uploaded images are deleted immediately after OCR processing. No data is sent to external servers or stored without your explicit action."
+    },
+    "purpose": {
+      "heading": "Educational Purpose",
+      "body": "This tool was developed as a thesis project to explore how AI can improve healthcare accessibility in Nepal and similar regions where access to medical professionals may be limited."
+    }
+  },
+  "classification": {
+    "Normal": "Normal",
+    "Low": "Low",
+    "Prediabetes": "Prediabetes",
+    "NeedsMonitoring": "Needs Monitoring",
+    "Diabetes": "Diabetes",
+    "risk": {
+      "Low": "Low",
+      "Moderate": "Moderate",
+      "High": "High",
+      "suffix": "Risk"
+    }
+  }
+}
