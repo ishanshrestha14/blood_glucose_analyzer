@@ -1,0 +1,15 @@
+.git
+.github
+.claude
+docs
+frontend
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+backend/venv
+backend/.env
+backend/data
+backend/uploads/*
+!backend/uploads/.gitkeep
+# Models are retrained during the build
+backend/models/*.pkl

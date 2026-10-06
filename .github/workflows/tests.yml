@@ -1,0 +1,38 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      # PaddleOCR is ~500MB and none of the tests touch OCR, so skip it here.
+      # The Docker build covers the full dependency set.
+      - name: Install dependencies
+        run: |
+          grep -viE '^paddle' backend/requirements.txt > "$RUNNER_TEMP/requirements-ci.txt"
+          pip install -r "$RUNNER_TEMP/requirements-ci.txt" pytest
+
+      # diabetes_pipeline.pkl is gitignored, so build it from the committed PIMA CSV.
+      - name: Train model pipeline
+        run: python ml_training/train_model.py
+
+      # Both suites live in a package named `tests`, so run them separately.
+      - name: Backend tests
+        working-directory: backend
+        run: python -m pytest tests -v
+
+      - name: ML training tests
+        working-directory: ml_training
+        run: python -m pytest tests -v

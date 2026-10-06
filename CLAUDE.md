@@ -26,6 +26,8 @@ blood_glucose_analyzer/
 │       ├── services/api.ts
 │       └── types/index.ts
 ├── ml_training/           PIMA dataset + training script
+├── Dockerfile             Backend image (build context = repo root)
+├── .github/workflows/     CI: tests.yml
 └── docs/
     └── CASE_STUDY.md
 ```
@@ -38,7 +40,22 @@ cd backend && source venv/bin/activate && python3 app.py
 
 # Frontend
 cd frontend && npm run dev
+
+# Docker (backend only)
+docker build -t glucose-analyzer . && docker run -p 5000:5000 glucose-analyzer
 ```
+
+## Tests
+
+`diabetes_pipeline.pkl` is gitignored — run `python ml_training/train_model.py` first on a fresh clone.
+Both test dirs are packages named `tests`, so run them separately:
+
+```bash
+cd backend && python -m pytest tests
+cd ml_training && python -m pytest tests
+```
+
+CI (`.github/workflows/tests.yml`) runs both on push to `main` and on PRs. It skips PaddleOCR install and trains the model before testing.
 
 ## Enhancement Roadmap
 
@@ -49,7 +66,7 @@ Tackling these one by one in order:
 - [x] **2. PIMA data cleaning + retraining + calibration** — Zero-imputation for physiologically impossible values, feature engineering, class balancing, `CalibratedClassifierCV`, retrain and swap `.pkl`.
 - [x] **3. SHAP + human-readable explanations** — SHAP waterfall chart per prediction, plain-English factor summaries, improve `explainability_service.py`.
 - [x] **5. Basic trends + insight sentence** — Date range filter on History page, auto-generated insight sentence (e.g. "Your FBS has trended down over 30 days").
-- [ ] **6. UI polish** — Mobile responsiveness audit, skeleton loaders, better empty/error states.
+- [x] **6. UI polish** — Mobile responsiveness audit, skeleton loaders, better empty/error states.
 - [ ] **7. i18n (partial)** — `react-i18next`, Nepali (ne) + Hindi (hi) + English (en), translate UI labels and classification results.
 
 ## Key Conventions
@@ -83,6 +100,6 @@ Tackling these one by one in order:
 
 ## Deployment Target
 
-- Backend: Docker → Railway/Render (`backend/Dockerfile`)
+- Backend: Docker → Railway/Render (`Dockerfile` at repo root — set build context to the repo root, not `backend/`). The build retrains the model from the PIMA CSV; gunicorn binds to `$PORT` (default 5000).
 - Frontend: Vercel (`frontend/vercel.json`), root dir = `frontend`
 - Note: PaddleOCR adds ~500MB to image. On free-tier, remove paddlepaddle/paddleocr — manual input + risk prediction still work.
