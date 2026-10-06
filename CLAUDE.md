@@ -93,10 +93,10 @@ Tackling these one by one in order:
 ## ML Model
 
 - Dataset: PIMA Indians Diabetes (768 samples, 8 features)
-- Algorithm: Random Forest (100 trees)
-- Current accuracy: ~74%, ROC-AUC ~80%
-- Known issue: columns with `0` values (Glucose, BloodPressure, BMI, Insulin, SkinThickness) are actually missing data — not yet imputed
-- Model artifacts: `backend/models/`
+- Pipeline: `FeatureEngineer` → `SimpleImputer(median)` → Random Forest (100 trees, `class_weight='balanced'`), wrapped in `CalibratedClassifierCV(method='sigmoid', cv=5)`
+- `FeatureEngineer` turns `0` in Glucose, BloodPressure, SkinThickness, Insulin, BMI into NaN (missing data) and adds `glucose_bmi` + `age_insulin_resistance` (Age × BMI) features
+- Current metrics (held-out test set): accuracy ~74.7%, ROC-AUC ~0.82, recall ~0.59. `train_model.py` asserts ROC-AUC ≥ 0.82 and recall ≥ 0.50
+- Model artifacts: `backend/models/` (`diabetes_pipeline.pkl` is gitignored; `model_metadata.pkl` is tracked)
 
 ## Deployment Target
 
